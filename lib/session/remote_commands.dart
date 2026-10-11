@@ -86,7 +86,7 @@ class CommandTracker extends ChangeNotifier {
   /// flight returns the in-flight command instead of sending a duplicate
   /// (protection against double REC). A different command while one is in
   /// flight is refused locally.
-  TrackedCommand issue(String type, {String? sessionId}) {
+  TrackedCommand issue(String type, {String? sessionId, Map<String, dynamic>? payload}) {
     final inFlight = active;
     if (inFlight != null) {
       if (inFlight.type == type) return inFlight;
@@ -99,7 +99,7 @@ class CommandTracker extends ChangeNotifier {
     }
     final cmd = TrackedCommand(newId('c'), type, DateTime.now());
     _put(cmd);
-    final msg = KpMessage(type: type, id: cmd.id, sessionId: sessionId);
+    final msg = KpMessage(type: type, id: cmd.id, sessionId: sessionId, payload: payload);
     _outgoing[cmd.id] = msg;
     _finalTimers[cmd.id] = Timer(finalTimeout, () => _timeout(cmd.id));
     _transmit(cmd);
@@ -230,11 +230,13 @@ class RemoteCommandHandler {
     this.capacity = 128,
   });
 
-  final bool Function() isRemoteAllowed;
+  /// Permission check per command type (REC and camera control have
+  /// separate switches on the CAMERA).
+  final bool Function(String type) isRemoteAllowed;
 
   /// Runs the command. Completes when the effect is *confirmed* (e.g. the
   /// recorder really started). Throw [CommandFailure] for known errors.
-  final Future<Map<String, dynamic>?> Function(String type) execute;
+  final Future<Map<String, dynamic>?> Function(KpMessage msg) execute;
   final int capacity;
 
   final LinkedHashMap<String, KpMessage> _finals = LinkedHashMap();
@@ -260,16 +262,17 @@ class RemoteCommandHandler {
     if (!MsgType.commands.contains(msg.type)) {
       fin = cmdStatusMessage(msg.id, msg.type, CmdStage.rejected,
           error: CmdError.unknownCommand, sessionId: sessionId);
-    } else if (!isRemoteAllowed()) {
+    } else if (!isRemoteAllowed(msg.type)) {
       fin = cmdStatusMessage(msg.id, msg.type, CmdStage.rejected,
-          error: CmdError.remoteDisabled, sessionId: sessionId);
+          error: MsgType.camCommands.contains(msg.type) ? CmdError.remoteCameraDisabled : CmdError.remoteDisabled,
+          sessionId: sessionId);
     } else if (_busy) {
       fin = cmdStatusMessage(msg.id, msg.type, CmdStage.rejected, error: CmdError.busy, sessionId: sessionId);
     } else {
       reply(cmdStatusMessage(msg.id, msg.type, CmdStage.accepted, sessionId: sessionId));
       _busy = true;
       try {
-        final extra = await execute(msg.type);
+        final extra = await execute(msg);
         fin = cmdStatusMessage(msg.id, msg.type, CmdStage.done, extra: extra, sessionId: sessionId);
       } on CommandFailure catch (e) {
         fin = cmdStatusMessage(msg.id, msg.type, CmdStage.failed,

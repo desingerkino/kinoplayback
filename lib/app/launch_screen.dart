@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../camera/camera_screen.dart';
+import '../core/brand/kp_logo.dart';
 import '../core/layout/adaptive.dart';
 import '../core/theme/kp_colors.dart';
 import '../core/theme/kp_text.dart';
@@ -8,6 +9,8 @@ import '../core/theme/kp_theme.dart';
 import '../playback/devices_screen.dart';
 import '../recording/takes_screen.dart';
 import '../settings/settings_screen.dart';
+import '../transmitters/transmitters_screen.dart';
+import 'source_screen.dart';
 
 /// Launch + mode selection. Two big targets: CAMERA and PLAYBACK.
 class LaunchScreen extends StatelessWidget {
@@ -67,21 +70,15 @@ class _Logo extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Semantics(
-      header: true,
-      label: 'KINO PLAYBACK',
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Text('KINO', style: KpText.logo.copyWith(fontSize: 52, letterSpacing: 4)),
-          const SizedBox(height: 2),
-          Text('PLAYBACK', style: KpText.logo.copyWith(fontSize: 22, fontWeight: FontWeight.w500, letterSpacing: 6)),
-          const SizedBox(height: KpSpace.m),
-          Text('PROFESSIONAL CINEMA MONITOR',
-              textAlign: TextAlign.center,
-              style: KpText.label.copyWith(color: KpColors.brand, fontSize: 11, letterSpacing: 2)),
-        ],
-      ),
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        const KpLogo(height: 56, stacked: true),
+        const SizedBox(height: KpSpace.m),
+        Text('CAMERA · MONITOR · PLAYBACK',
+            textAlign: TextAlign.center,
+            style: KpText.label.copyWith(color: KpColors.textDim, fontSize: 11, letterSpacing: 2)),
+      ],
     );
   }
 }
@@ -170,6 +167,16 @@ class _Footer extends StatelessWidget {
       alignment: WrapAlignment.center,
       spacing: KpSpace.s,
       children: [
+        TextButton.icon(
+          onPressed: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const SourceScreen())),
+          icon: const Icon(Icons.input, size: 18),
+          label: const Text('Источник видео'),
+        ),
+        TextButton.icon(
+          onPressed: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const TransmittersScreen())),
+          icon: const Icon(Icons.settings_input_antenna, size: 18),
+          label: const Text('Сендеры'),
+        ),
         TextButton.icon(
           onPressed: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const TakesScreen())),
           icon: const Icon(Icons.video_library_outlined, size: 18),

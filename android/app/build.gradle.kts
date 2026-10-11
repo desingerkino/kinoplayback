@@ -47,3 +47,10 @@ kotlin {
 flutter {
     source = "../.."
 }
+
+dependencies {
+    // Same WebRTC build as flutter_webrtc (its dependency is `implementation`,
+    // so the app needs it on its own classpath for the external display
+    // renderer in MainActivity.kt).
+    implementation("io.github.webrtc-sdk:android:150.7871.01")
+}

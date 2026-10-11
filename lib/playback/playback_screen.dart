@@ -1,19 +1,27 @@
 import 'dart:async';
+import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
+import 'package:flutter/scheduler.dart';
 import 'package:flutter/services.dart';
 
 import '../app/app_scope.dart';
 import '../core/layout/adaptive.dart';
+import '../core/layout/orientation_lock.dart';
 import '../core/storage_info.dart';
 import '../core/theme/kp_colors.dart';
 import '../core/theme/kp_text.dart';
 import '../core/widgets/kp_widgets.dart';
 import '../core/widgets/rec_widgets.dart';
 import '../diagnostics/diagnostics_screen.dart';
+import '../external_display/external_display.dart';
+import '../external_display/external_display_sheet.dart';
+import '../motion/orientation_math.dart';
+import '../motion/orientation_sync.dart';
 import '../monitor/frame_analyzer.dart';
 import '../monitor/monitor_chrome.dart';
 import '../monitor/monitor_view.dart';
+import '../monitor/overlays.dart';
 import '../network/net_utils.dart';
 import '../network/stream_stats.dart';
 import '../protocol/messages.dart';
@@ -28,10 +36,60 @@ class PlaybackScreen extends StatefulWidget {
   State<PlaybackScreen> createState() => _PlaybackScreenState();
 }
 
-class _PlaybackScreenState extends State<PlaybackScreen> {
+class _PlaybackScreenState extends State<PlaybackScreen> with SingleTickerProviderStateMixin {
   PlaybackController? _ctl;
   final FrameAnalyzer _analyzer = FrameAnalyzer();
   bool _chrome = true;
+
+  /// Tap on the picture sends a focus / exposure point to the camera.
+  bool _focusMode = false;
+
+  /// Display rotation (deg) driven by Camera Orientation Sync, updated per
+  /// frame only while it is changing — the rest of the UI doesn't rebuild.
+  final ValueNotifier<double> _rotation = ValueNotifier(0);
+  late final Ticker _ticker = createTicker(_onTick);
+  double _extRotation = 0;
+  bool _extMirror = false;
+
+  void _onTick(Duration _) {
+    final c = _ctl;
+    if (c == null) return;
+    final w = c.videoWidth, h = c.videoHeight;
+    final r = c.orientation.displayRotation(c.nowMs, frameIsPortrait: w != null && h != null && h > w);
+    if ((r - _rotation.value).abs() > 0.05) _rotation.value = r;
+  }
+
+  void _syncOrientationSettings() {
+    final c = _ctl;
+    if (c == null) return;
+    final settings = AppScope.of(context).settings;
+    final o = c.orientation;
+    o.mode = RotationModeX.parse(settings.rotationMode);
+    o.manualDeg = settings.manualRotation;
+    o.invert = settings.rollInvert;
+    if (!_ticker.isActive) _ticker.start();
+  }
+
+  void _syncExternalDisplay() {
+    final c = _ctl;
+    final ext = ExternalDisplay.instance;
+    final t = c?.remoteVideo;
+    if (c == null || t == null || !ext.connected || !c.isLive) return;
+    final settings = AppScope.of(context).settings;
+    final mode = RotationModeX.parse(settings.rotationMode);
+    // The external picture follows fixed rotations; continuous roll stays
+    // on the phone (rotating a TV picture every frame is not useful).
+    final rot = mode == RotationMode.followRoll || mode == RotationMode.autoSync ? 0.0 : _rotation.value;
+    if (ext.attachedTrackId != t.id) {
+      _extRotation = rot;
+      _extMirror = settings.playbackMirror;
+      unawaited(ext.show(t, mirror: _extMirror, rotation: _extRotation));
+    } else if (rot != _extRotation || settings.playbackMirror != _extMirror) {
+      _extRotation = rot;
+      _extMirror = settings.playbackMirror;
+      unawaited(ext.setTransform(mirror: _extMirror, rotation: _extRotation));
+    }
+  }
 
   @override
   void didChangeDependencies() {
@@ -41,12 +99,25 @@ class _PlaybackScreenState extends State<PlaybackScreen> {
     final ctl = PlaybackController(settings: s.settings, repo: s.takes, identity: s.identity, target: widget.target);
     _ctl = ctl;
     unawaited(ctl.start());
+    ctl.addListener(_syncExternalDisplay);
+    ExternalDisplay.instance.addListener(_syncExternalDisplay);
     SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
+    applyOrientationLock(OrientationLockX.parse(s.settings.orientationLock));
+    _syncOrientationSettings();
   }
 
   @override
   void dispose() {
     SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
+    applyOrientationLock(OrientationLock.auto);
+    _ticker.dispose();
+    _rotation.dispose();
+    ExternalDisplay.instance.removeListener(_syncExternalDisplay);
+    _ctl?.removeListener(_syncExternalDisplay);
+    if (ExternalDisplay.instance.attachedTrackId != null &&
+        ExternalDisplay.instance.attachedTrackId == _ctl?.remoteVideo?.id) {
+      unawaited(ExternalDisplay.instance.hide());
+    }
     _analyzer.dispose();
     final ctl = _ctl;
     ctl?.closeAndDispose();
@@ -88,6 +159,7 @@ class _PlaybackScreenState extends State<PlaybackScreen> {
           listenable: Listenable.merge([ctl, settings]),
           builder: (context, _) {
             _analyzer.track = ctl.isLive ? ctl.remoteVideo : null;
+            _syncOrientationSettings();
             final ff = formFactorOfContext(context);
             return ff.isLandscape ? _landscape(ctl, ff) : _portrait(ctl, ff);
           },
@@ -99,20 +171,105 @@ class _PlaybackScreenState extends State<PlaybackScreen> {
   // --------------------------------------------------------------- pieces --
   Widget _monitor(PlaybackController c) {
     final settings = AppScope.of(context).settings;
-    return GestureDetector(
-      onTap: () => setState(() => _chrome = !_chrome),
-      onDoubleTap: () => settings.update((s) => s.toolFill = !s.toolFill),
-      child: Stack(
+    final aspect = c.videoAspect;
+    final mirrored = settings.playbackMirror;
+    final cover = settings.toolFill;
+    return LayoutBuilder(builder: (context, box) {
+      final size = Size(box.maxWidth, box.maxHeight);
+      return ValueListenableBuilder<double>(
+        valueListenable: _rotation,
+        builder: (context, rot, _) {
+          final scale = rot == 0 || cover ? 1.0 : rotatedFitScale(size, aspect, rot);
+          final transform = Matrix4.rotationZ(rot * math.pi / 180)..multiply(Matrix4.diagonal3Values(scale, scale, 1));
+          final fp = c.pendingFocus ??
+              (c.camState?.focusPoint == null ? null : Offset(c.camState!.focusPoint!.$1, c.camState!.focusPoint!.$2));
+          final ep = c.camState?.exposurePoint == null
+              ? null
+              : Offset(c.camState!.exposurePoint!.$1, c.camState!.exposurePoint!.$2);
+          Offset? toW(Offset? p) => p == null
+              ? null
+              : pictureToWidget(point: p, box: size, aspect: aspect, cover: cover, rotationDeg: rot, scale: scale, mirrored: mirrored);
+          final roll = c.orientation.cameraRoll;
+          final fresh = c.orientation.hasFreshData(c.nowMs);
+          return GestureDetector(
+            behavior: HitTestBehavior.opaque,
+            onTapUp: (d) {
+              if (_focusMode && c.canControlCamera) {
+                final p = tapToPicture(
+                    tap: d.localPosition, box: size, aspect: aspect, cover: cover, rotationDeg: rot, scale: scale, mirrored: mirrored);
+                if (p != null) {
+                  final cmd = c.remoteFocus(p, settings.tapTarget);
+                  if (cmd == null && c.message != null) showKpToast(context, c.message!, color: KpColors.warn);
+                }
+              } else {
+                setState(() => _chrome = !_chrome);
+              }
+            },
+            onDoubleTap: () => settings.update((s) => s.toolFill = !s.toolFill),
+            child: Stack(
+              fit: StackFit.expand,
+              children: [
+                Transform(
+                  alignment: Alignment.center,
+                  transform: transform,
+                  child: MonitorView(
+                    renderer: c.renderer,
+                    videoAspect: aspect,
+                    guides: guidesFrom(settings),
+                    analyzer: _analyzer,
+                    mirror: mirrored,
+                    hasVideo: c.remoteVideo != null,
+                    placeholder: const SizedBox.shrink(),
+                  ),
+                ),
+                IgnorePointer(
+                  child: CustomPaint(
+                    painter: ReticlePainter(
+                      focus: toW(fp),
+                      exposure: toW(ep),
+                      afLocked: c.camState?.afLocked ?? false,
+                      aeLocked: c.camState?.aeLocked ?? false,
+                      pending: c.pendingFocus != null,
+                    ),
+                  ),
+                ),
+                if (settings.toolHorizon && roll != null && fresh)
+                  IgnorePointer(
+                    child: CustomPaint(
+                      painter: HorizonPainter(
+                        angleDeg: rot - residualRoll(roll),
+                        tiltDeg: residualRoll(roll),
+                      ),
+                    ),
+                  ),
+                if (_focusMode)
+                  const Positioned(
+                    right: 8,
+                    top: 8,
+                    child: KpPill(label: 'TAP → КАМЕРА', icon: Icons.center_focus_strong, active: true, color: KpColors.text),
+                  ),
+                _monitorStatus(c),
+                if (c.orientation.mode == RotationMode.followRoll)
+                  Positioned(
+                    left: 8,
+                    bottom: 8,
+                    child: KpPill(
+                      label: roll != null && fresh ? 'ROLL ${roll >= 0 ? '+' : ''}${roll.toStringAsFixed(0)}°' : 'ROLL: NO DATA',
+                      color: roll != null && fresh ? KpColors.text : KpColors.textMute,
+                    ),
+                  ),
+              ],
+            ),
+          );
+        },
+      );
+    });
+  }
+
+  Widget _monitorStatus(PlaybackController c) {
+    return Stack(
         fit: StackFit.expand,
         children: [
-          MonitorView(
-            renderer: c.renderer,
-            videoAspect: c.videoAspect,
-            guides: guidesFrom(settings),
-            analyzer: _analyzer,
-            hasVideo: c.remoteVideo != null,
-            placeholder: const SizedBox.shrink(),
-          ),
           if (!c.isLive || c.remoteVideo == null) _linkOverlay(c),
           if (c.isLive && c.stateStale)
             const Positioned(
@@ -126,7 +283,6 @@ class _PlaybackScreenState extends State<PlaybackScreen> {
               builder: (context, _) => HistogramView(bins: _analyzer.histogram),
             )),
         ],
-      ),
     );
   }
 
@@ -210,6 +366,14 @@ class _PlaybackScreenState extends State<PlaybackScreen> {
   }
 
   List<Widget> _trailingItems(PlaybackController c) => [
+        IconButton(
+          tooltip: 'Внешний дисплей / AirPlay',
+          visualDensity: VisualDensity.compact,
+          icon: Icon(Icons.connected_tv,
+              size: 20, color: ExternalDisplay.instance.connected ? KpColors.live : KpColors.text),
+          onPressed: () => showExternalDisplaySheet(context),
+        ),
+        OrientationLockButton(settings: AppScope.of(context).settings, size: 32),
         if (c.hasRemoteAudio)
           IconButton(
             tooltip: c.monitorMuted ? 'Включить звук монитора' : 'Выключить звук монитора',
@@ -425,11 +589,33 @@ class _PlaybackScreenState extends State<PlaybackScreen> {
         onTap: () => setState(() => _analyzer.toggle(AnalysisTool.histogram)),
       ),
       KpToolButton(
-        icon: Icons.add,
-        label: 'Центр',
+        icon: Icons.center_focus_strong,
+        label: 'Фокус',
         compact: compact,
-        selected: settings.toolCross,
-        onTap: () => settings.update((s) => s.toolCross = !s.toolCross),
+        selected: _focusMode,
+        enabled: _ctl?.canControlCamera ?? false,
+        onTap: () => setState(() => _focusMode = !_focusMode),
+      ),
+      KpToolButton(
+        icon: Icons.camera,
+        label: 'AF/AE',
+        compact: compact,
+        enabled: _ctl?.canControlCamera ?? false,
+        onTap: () => _showCameraControl(_ctl!),
+      ),
+      KpToolButton(
+        icon: Icons.screen_rotation_alt,
+        label: 'Поворот',
+        compact: compact,
+        selected: settings.rotationMode != RotationMode.autoSync.name,
+        onTap: () => _showRotation(_ctl!),
+      ),
+      KpToolButton(
+        icon: Icons.flip,
+        label: 'Зеркало',
+        compact: compact,
+        selected: settings.playbackMirror,
+        onTap: () => settings.update((s) => s.playbackMirror = !s.playbackMirror),
       ),
       KpToolButton(
         icon: Icons.more_horiz,
@@ -438,6 +624,135 @@ class _PlaybackScreenState extends State<PlaybackScreen> {
         onTap: () => showMonitorTools(context, settings: settings, analyzer: _analyzer),
       ),
     ];
+  }
+
+  void _showRotation(PlaybackController c) {
+    final settings = AppScope.of(context).settings;
+    showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      builder: (context) => ListenableBuilder(
+        listenable: settings,
+        builder: (context, _) {
+          final mode = RotationModeX.parse(settings.rotationMode);
+          final caps = c.camState?.caps;
+          return SafeArea(
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                Text('Синхронизация вращения', style: KpText.heading),
+                const SizedBox(height: 4),
+                Text('Влияет только на отображение этого монитора: файл камеры, поток и запись не меняются.', style: KpText.caption),
+                const SizedBox(height: 10),
+                KpSection(children: [
+                  for (final m in RotationMode.values)
+                    KpRow(
+                      label: m.label,
+                      subtitle: m == RotationMode.followRoll && caps != null && !caps.motion
+                          ? 'Камера не передаёт данные датчиков (внешний источник или нет датчика)'
+                          : m.hint,
+                      trailing: m == mode ? const Icon(Icons.check, color: KpColors.text, size: 18) : null,
+                      onTap: () => settings.update((s) => s.rotationMode = m.name),
+                    ),
+                ]),
+                if (mode == RotationMode.manual) ...[
+                  Text('Поворот: ${settings.manualRotation.round()}°', style: KpText.label),
+                  Slider(
+                    value: settings.manualRotation.clamp(-180, 180),
+                    min: -180,
+                    max: 180,
+                    divisions: 360,
+                    activeColor: KpColors.text,
+                    onChanged: (v) => settings.update((s) => s.manualRotation = v),
+                  ),
+                  Wrap(spacing: 8, children: [
+                    for (final a in const [0.0, 90.0, 180.0, -90.0])
+                      KpPill(label: '${a.round()}°', onTap: () => settings.update((s) => s.manualRotation = a), color: KpColors.text),
+                  ]),
+                  const SizedBox(height: 10),
+                ],
+                KpSection(children: [
+                  KpSwitchRow(
+                    label: 'Индикатор горизонта',
+                    subtitle: 'По датчику гравитации камеры',
+                    value: settings.toolHorizon,
+                    onChanged: (v) => settings.update((s) => s.toolHorizon = v),
+                  ),
+                  KpSwitchRow(
+                    label: 'Инвертировать направление крена',
+                    subtitle: 'Калибровка, если наклон отображается в обратную сторону',
+                    value: settings.rollInvert,
+                    onChanged: (v) => settings.update((s) => s.rollInvert = v),
+                  ),
+                ]),
+              ]),
+            ),
+          );
+        },
+      ),
+    );
+  }
+
+  void _showCameraControl(PlaybackController c) {
+    final settings = AppScope.of(context).settings;
+    showModalBottomSheet<void>(
+      context: context,
+      builder: (context) => ListenableBuilder(
+        listenable: Listenable.merge([c, settings]),
+        builder: (context, _) {
+          final st = c.camState;
+          final caps = st?.caps;
+          return SafeArea(
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+              child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
+                Text('Фокус и экспозиция камеры', style: KpText.heading),
+                const SizedBox(height: 4),
+                Text(
+                  c.canControlCamera
+                      ? 'Нажмите «Фокус» на панели и коснитесь изображения. Камера подтверждает каждое действие.'
+                      : 'Управление фокусом/экспозицией не разрешено на камере или нет связи.',
+                  style: KpText.caption,
+                ),
+                const SizedBox(height: 12),
+                Wrap(spacing: 0, runSpacing: 8, children: [
+                  KpPill(
+                    label: tapTargetLabel(settings.tapTarget),
+                    color: KpColors.text,
+                    onTap: () => settings.update((s) => s.tapTarget = nextTapTarget(s.tapTarget)),
+                  ),
+                  KpPill(
+                    label: 'AF-L',
+                    active: st?.afLocked ?? false,
+                    enabled: c.canControlCamera && (caps?.focusLock ?? false),
+                    onTap: () => c.remoteLock(af: !(st?.afLocked ?? false)),
+                  ),
+                  KpPill(
+                    label: 'AE-L',
+                    active: st?.aeLocked ?? false,
+                    enabled: c.canControlCamera && (caps?.exposureLock ?? false),
+                    onTap: () => c.remoteLock(ae: !(st?.aeLocked ?? false)),
+                  ),
+                  for (final z in const [1.0, 2.0, 3.0])
+                    KpPill(
+                      label: '${z.toStringAsFixed(0)}×',
+                      active: (st?.zoom ?? 1) == z,
+                      enabled: c.canControlCamera && (caps?.zoom ?? false),
+                      onTap: () => c.remoteZoom(z),
+                    ),
+                ]),
+                const SizedBox(height: 12),
+                KpSection(children: [
+                  KpRow(label: 'Точка фокуса', value: caps?.focusPoint == true ? 'поддерживается' : 'NOT AVAILABLE'),
+                  KpRow(label: 'AE LOCK', value: caps?.exposureLock == true ? 'поддерживается' : 'NOT AVAILABLE'),
+                  KpRow(label: 'Ручной фокус / ISO / выдержка / WB / EV', value: 'NOT AVAILABLE'),
+                ]),
+              ]),
+            ),
+          );
+        },
+      ),
+    );
   }
 
   Widget _aspectRail() {
@@ -590,7 +905,11 @@ class _PlaybackScreenState extends State<PlaybackScreen> {
             ]),
           ),
           const SizedBox(height: 6),
-          Row(mainAxisAlignment: MainAxisAlignment.spaceAround, children: _toolButtons()),
+          SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            padding: const EdgeInsets.symmetric(horizontal: 8),
+            child: Row(children: _toolButtons()),
+          ),
           const SizedBox(height: 4),
         ],
       ),

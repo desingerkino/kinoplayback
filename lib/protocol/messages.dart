@@ -43,7 +43,17 @@ abstract final class MsgType {
   static const ping = 'ping';
   static const pong = 'pong';
 
-  static const commands = {recStart, recStop};
+  // Camera control (data channel) — need "remote camera control" permission
+  static const camFocus = 'cam.focus'; // {x, y, target: focus|exposure|both}
+  static const camLock = 'cam.lock'; // {af?: bool, ae?: bool}
+  static const camZoom = 'cam.zoom'; // {z}
+
+  // Orientation metadata, CAMERA → PLAYBACK, ~15 Hz (not a command)
+  static const motion = 'motion';
+
+  static const recCommands = {recStart, recStop};
+  static const camCommands = {camFocus, camLock, camZoom};
+  static const commands = {...recCommands, ...camCommands};
 }
 
 class KpMessage {
@@ -163,6 +173,9 @@ abstract final class CmdError {
   static const recorderError = 'recorder_error';
   static const busy = 'busy';
   static const unknownCommand = 'unknown_command';
+  static const remoteCameraDisabled = 'remote_camera_disabled';
+  static const notSupported = 'not_supported';
+  static const badArgs = 'bad_args';
 
   static String describe(String? code) => switch (code) {
         remoteDisabled => 'Удалённое управление запрещено на камере',
@@ -171,6 +184,9 @@ abstract final class CmdError {
         recorderError => 'Ошибка записи на камере',
         busy => 'Камера занята предыдущей командой',
         unknownCommand => 'Неизвестная команда',
+        remoteCameraDisabled => 'Управление фокусом/экспозицией с монитора запрещено на камере',
+        notSupported => 'Камера не поддерживает это действие',
+        badArgs => 'Неверные параметры команды',
         null => 'Неизвестная ошибка',
         _ => code,
       };

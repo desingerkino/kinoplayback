@@ -11,6 +11,8 @@ import 'package:wakelock_plus/wakelock_plus.dart';
 import '../core/device_identity.dart';
 import '../core/event_log.dart';
 import '../core/storage_info.dart';
+import '../motion/motion_source.dart';
+import '../motion/orientation_sync.dart';
 import '../network/discovery.dart';
 import '../network/net_utils.dart';
 import '../network/rtc.dart';
@@ -54,11 +56,50 @@ class PeerClient {
 /// CAMERA mode: capture, original recording, serving the stream to PLAYBACK
 /// devices and executing their (permitted) REC commands.
 class CameraController extends ChangeNotifier with WidgetsBindingObserver {
-  CameraController({required this.settings, required this.repo, required this.identity});
+  CameraController({
+    required this.settings,
+    required this.repo,
+    required this.identity,
+    this.externalDeviceId,
+    this.externalLabel,
+  });
 
   final AppSettings settings;
   final TakesRepository repo;
   final DeviceIdentity identity;
+
+  /// When set, the source is an external capture device (USB/UVC) chosen in
+  /// "Источник видео" instead of the built-in camera.
+  final String? externalDeviceId;
+  final String? externalLabel;
+  bool get isExternal => externalDeviceId != null;
+
+  // ---- focus / exposure / zoom (real calls into the capture device) ----
+  Offset? focusPoint;
+  Offset? exposurePoint;
+  bool afLocked = false;
+  bool aeLocked = false;
+  double zoom = 1.0;
+  String? controlError;
+
+  /// Motion (roll) of this device; not used for external sources, which
+  /// have no motion data.
+  final MotionSource motion = MotionSource();
+  int _motionSeq = 0;
+
+  /// What the capture pipeline supports. Exposure lock on Android is a no-op
+  /// in flutter_webrtc (the call never completes), so it is reported as
+  /// unsupported instead of shown as a working control. EV compensation,
+  /// ISO, shutter, WB and manual focus distance are not exposed by the
+  /// pipeline at all.
+  CameraCaps get caps => CameraCaps(
+        focusPoint: !isExternal,
+        exposurePoint: !isExternal,
+        focusLock: !isExternal,
+        exposureLock: !isExternal && Platform.isIOS,
+        zoom: !isExternal,
+        motion: !isExternal && motion.available,
+      );
 
   /// Set by the UI to show the "allow connection?" dialog.
   ApprovalCallback? approve;
@@ -82,7 +123,11 @@ class CameraController extends ChangeNotifier with WidgetsBindingObserver {
   late final TakeRecorder recorder = TakeRecorder(repo: repo, source: TakeSource.original)
     ..onTakeUpdated = (_) => _broadcastState();
   late final RemoteCommandHandler _handler =
-      RemoteCommandHandler(isRemoteAllowed: () => settings.remoteControlAllowed, execute: _execute);
+      RemoteCommandHandler(isRemoteAllowed: _remoteAllowed, execute: _execute);
+
+  bool _remoteAllowed(String type) => MsgType.camCommands.contains(type)
+      ? settings.remoteCameraControl
+      : settings.remoteControlAllowed;
 
   final List<PeerClient> peers = [];
   final CameraAdvertiser _advertiser = CameraAdvertiser();
@@ -138,6 +183,11 @@ class CameraController extends ChangeNotifier with WidgetsBindingObserver {
     _lastRemoteAllowed = settings.remoteControlAllowed;
     _lastStream = settings.stream;
     await openCamera();
+    if (!isExternal) {
+      motion.onSample = _sendMotion;
+      motion.addListener(_notify);
+      motion.start();
+    }
     await _startServer();
     _heartbeat = Timer.periodic(const Duration(seconds: 2), (_) => _broadcastState());
     _statsTimer = Timer.periodic(const Duration(seconds: 1), (_) => _pollStats());
@@ -147,9 +197,14 @@ class CameraController extends ChangeNotifier with WidgetsBindingObserver {
   }
 
   bool _lastRemoteAllowed = false;
+  bool _lastRemoteCam = false;
   StreamQuality? _lastStream;
 
   void _onSettingsChanged() {
+    if (settings.remoteCameraControl != _lastRemoteCam) {
+      _lastRemoteCam = settings.remoteCameraControl;
+      _broadcastState();
+    }
     if (settings.remoteControlAllowed != _lastRemoteAllowed) {
       _lastRemoteAllowed = settings.remoteControlAllowed;
       logI('cam', 'удалённое управление: ${_lastRemoteAllowed ? 'разрешено' : 'запрещено'}');
@@ -199,12 +254,18 @@ class CameraController extends ChangeNotifier with WidgetsBindingObserver {
     final constraints = <String, dynamic>{
       'audio': settings.audioEnabled,
       'video': <String, dynamic>{
-        'facingMode': settings.frontCamera ? 'user' : 'environment',
+        if (isExternal) 'deviceId': externalDeviceId else 'facingMode': settings.frontCamera ? 'user' : 'environment',
         'width': preset.width,
         'height': preset.height,
         'frameRate': preset.fps,
       },
     };
+    focusPoint = null;
+    exposurePoint = null;
+    afLocked = false;
+    aeLocked = false;
+    zoom = 1.0;
+    controlError = null;
     try {
       final s = await navigator.mediaDevices.getUserMedia(constraints);
       _stream = s;
@@ -218,7 +279,7 @@ class CameraController extends ChangeNotifier with WidgetsBindingObserver {
       capHeight = n(st['height']);
       capFps = n(st['frameRate']);
       final fm = st['facingMode'];
-      facing = fm == 'user' ? 'front' : (fm == 'environment' ? 'back' : null);
+      facing = isExternal ? 'external' : (fm == 'user' ? 'front' : (fm == 'environment' ? 'back' : null));
       final w = capWidth, h = capHeight;
       if (w != null && h != null) {
         final long = math.max(w, h), short = math.min(w, h);
@@ -308,7 +369,9 @@ class CameraController extends ChangeNotifier with WidgetsBindingObserver {
     return t;
   }
 
-  Future<Map<String, dynamic>?> _execute(String type) async {
+  Future<Map<String, dynamic>?> _execute(KpMessage msg) async {
+    final type = msg.type;
+    if (MsgType.camCommands.contains(type)) return _executeCamera(msg);
     if (_recOpInFlight) throw CommandFailure(CmdError.busy);
     _recOpInFlight = true;
     try {
@@ -330,6 +393,149 @@ class CameraController extends ChangeNotifier with WidgetsBindingObserver {
       _recOpInFlight = false;
     }
   }
+
+  // ------------------------------------------------- focus / exposure --
+  static const _ctlTimeout = Duration(seconds: 3);
+
+  Future<void> _guard(String what, Future<void> Function() f) async {
+    try {
+      await f().timeout(_ctlTimeout);
+      controlError = null;
+    } on TimeoutException {
+      controlError = '$what: камера не ответила';
+      logW('cam', controlError!);
+      throw CommandFailure(CmdError.notSupported, controlError);
+    } catch (e) {
+      controlError = '$what: $e';
+      logW('cam', controlError!);
+      throw CommandFailure(CmdError.notSupported, '$e');
+    } finally {
+      _notify();
+      _broadcastState();
+    }
+  }
+
+  /// [p] — normalised point (0..1) in the picture as delivered by the
+  /// pipeline (mirroring / display rotation already undone by the caller).
+  Future<void> setFocusAt(Offset p) async {
+    final t = videoTrack;
+    if (t == null || !caps.focusPoint) throw CommandFailure(CmdError.notSupported);
+    await _guard('Фокус', () async {
+      if (afLocked) {
+        await Helper.setFocusMode(t, CameraFocusMode.auto);
+        afLocked = false;
+      }
+      await Helper.setFocusPoint(t, math.Point<double>(p.dx, p.dy));
+      focusPoint = p;
+    });
+    logI('cam', 'фокус → (${p.dx.toStringAsFixed(2)}, ${p.dy.toStringAsFixed(2)})');
+  }
+
+  Future<void> setExposureAt(Offset p) async {
+    final t = videoTrack;
+    if (t == null || !caps.exposurePoint) throw CommandFailure(CmdError.notSupported);
+    await _guard('Экспозиция', () async {
+      if (aeLocked && caps.exposureLock) {
+        await Helper.setExposureMode(t, CameraExposureMode.auto);
+        aeLocked = false;
+      }
+      await Helper.setExposurePoint(t, math.Point<double>(p.dx, p.dy));
+      exposurePoint = p;
+    });
+    logI('cam', 'экспозиция → (${p.dx.toStringAsFixed(2)}, ${p.dy.toStringAsFixed(2)})');
+  }
+
+  Future<void> setAfLock(bool lock) async {
+    final t = videoTrack;
+    if (t == null || !caps.focusLock) throw CommandFailure(CmdError.notSupported);
+    await _guard('AF LOCK', () async {
+      await Helper.setFocusMode(t, lock ? CameraFocusMode.locked : CameraFocusMode.auto);
+      afLocked = lock;
+    });
+  }
+
+  Future<void> setAeLock(bool lock) async {
+    final t = videoTrack;
+    if (t == null || !caps.exposureLock) throw CommandFailure(CmdError.notSupported);
+    await _guard('AE LOCK', () async {
+      await Helper.setExposureMode(t, lock ? CameraExposureMode.locked : CameraExposureMode.auto);
+      aeLocked = lock;
+    });
+  }
+
+  Future<void> setZoom(double z) async {
+    final t = videoTrack;
+    if (t == null || !caps.zoom) throw CommandFailure(CmdError.notSupported);
+    final v = z.clamp(1.0, 10.0);
+    await _guard('Зум', () async {
+      await Helper.setZoom(t, v);
+      zoom = v;
+    });
+  }
+
+  /// UI entry points: never throw, errors are shown via [controlError].
+  Future<void> tapAt(Offset p, String target) async {
+    try {
+      if (target != 'exposure') await setFocusAt(p);
+      if (target != 'focus') await setExposureAt(p);
+    } on CommandFailure catch (_) {}
+  }
+
+  Future<void> toggleAfLock() async {
+    try {
+      await setAfLock(!afLocked);
+    } on CommandFailure catch (_) {}
+  }
+
+  Future<void> toggleAeLock() async {
+    try {
+      await setAeLock(!aeLocked);
+    } on CommandFailure catch (_) {}
+  }
+
+  Future<void> zoomTo(double z) async {
+    try {
+      await setZoom(z);
+    } on CommandFailure catch (_) {}
+  }
+
+  Future<Map<String, dynamic>?> _executeCamera(KpMessage m) async {
+    final p = m.payload;
+    switch (m.type) {
+      case MsgType.camFocus:
+        final x = p['x'], y = p['y'];
+        if (x is! num || y is! num || x < 0 || x > 1 || y < 0 || y > 1) throw CommandFailure(CmdError.badArgs);
+        final pt = Offset(x.toDouble(), y.toDouble());
+        final target = (p['target'] as String?) ?? 'both';
+        if (target != 'exposure') await setFocusAt(pt);
+        if (target != 'focus') await setExposureAt(pt);
+        return {'x': x, 'y': y, 'target': target};
+      case MsgType.camLock:
+        if (p['af'] is bool) await setAfLock(p['af'] as bool);
+        if (p['ae'] is bool) await setAeLock(p['ae'] as bool);
+        return {'af': afLocked, 'ae': aeLocked};
+      case MsgType.camZoom:
+        final z = p['z'];
+        if (z is! num) throw CommandFailure(CmdError.badArgs);
+        await setZoom(z.toDouble());
+        return {'z': zoom};
+    }
+    throw CommandFailure(CmdError.unknownCommand);
+  }
+
+  void _sendMotion(MotionSample s) {
+    if (isExternal) return;
+    _motionSeq++;
+    for (final p in peers) {
+      final c = p.ctl;
+      if (c == null || !c.isOpen) continue;
+      try {
+        c.send(KpMessage(type: MsgType.motion, sessionId: sessionId, payload: s.toJson()));
+      } catch (_) {}
+    }
+  }
+
+  int get motionSamplesSent => _motionSeq;
 
   // -------------------------------------------------------------- network --
   Future<void> _startServer() async {
@@ -618,6 +824,15 @@ class CameraController extends ChangeNotifier with WidgetsBindingObserver {
       lastSaveError: last?.finalizeError ?? last?.galleryError,
       cameraReady: phase == CameraPhase.ready,
       recorderNote: recorder.lastError,
+      remoteCameraControl: settings.remoteCameraControl,
+      afLocked: afLocked,
+      aeLocked: aeLocked,
+      zoom: caps.zoom ? zoom : null,
+      focusPoint: focusPoint == null ? null : (focusPoint!.dx, focusPoint!.dy),
+      exposurePoint: exposurePoint == null ? null : (exposurePoint!.dx, exposurePoint!.dy),
+      caps: caps,
+      externalSource: isExternal ? (externalLabel ?? 'USB / UVC') : null,
+      mirrorApplied: false,
     );
   }
 
@@ -682,6 +897,7 @@ class CameraController extends ChangeNotifier with WidgetsBindingObserver {
     _heartbeat?.cancel();
     _statsTimer?.cancel();
     _sysTimer?.cancel();
+    motion.stop();
     if (recorder.isRecording) {
       await recorder.stop(saveToGallery: settings.autoSaveToGallery);
     }
@@ -718,6 +934,7 @@ class CameraController extends ChangeNotifier with WidgetsBindingObserver {
     _statsTimer?.cancel();
     _sysTimer?.cancel();
     recorder.dispose();
+    motion.dispose();
     preview.dispose();
     super.dispose();
   }

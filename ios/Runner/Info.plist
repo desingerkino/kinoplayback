@@ -38,6 +38,8 @@
 	<string>Локальная сеть нужна, чтобы находить устройства KINO PLAYBACK и передавать видео напрямую по Wi-Fi без интернета.</string>
 	<key>NSMicrophoneUsageDescription</key>
 	<string>Микрофон нужен, чтобы записывать звук в оригинал и передавать его на монитор PLAYBACK.</string>
+	<key>NSMotionUsageDescription</key>
+	<string>Датчики движения нужны, чтобы передавать наклон камеры на монитор (Camera Motion Sync).</string>
 	<key>NSPhotoLibraryAddUsageDescription</key>
 	<string>Записанные дубли сохраняются в Фото.</string>
 	<key>NSPhotoLibraryUsageDescription</key>
@@ -61,6 +63,28 @@
 					<string>Main</string>
 				</dict>
 			</array>
+			<key>UIWindowSceneSessionRoleExternalDisplay</key>
+			<array>
+				<dict>
+					<key>UISceneClassName</key>
+					<string>UIWindowScene</string>
+					<key>UISceneConfigurationName</key>
+					<string>KinoExternalDisplay</string>
+					<key>UISceneDelegateClassName</key>
+					<string>$(PRODUCT_MODULE_NAME).ExternalDisplaySceneDelegate</string>
+				</dict>
+			</array>
+			<key>UIWindowSceneSessionRoleExternalDisplayNonInteractive</key>
+			<array>
+				<dict>
+					<key>UISceneClassName</key>
+					<string>UIWindowScene</string>
+					<key>UISceneConfigurationName</key>
+					<string>KinoExternalDisplay</string>
+					<key>UISceneDelegateClassName</key>
+					<string>$(PRODUCT_MODULE_NAME).ExternalDisplaySceneDelegate</string>
+				</dict>
+			</array>
 		</dict>
 	</dict>
 	<key>UIApplicationSupportsIndirectInputEvents</key>
@@ -72,7 +96,7 @@
 	<key>UIMainStoryboardFile</key>
 	<string>Main</string>
 	<key>UIRequiresFullScreen</key>
-	<false/>
+	<true/>
 	<key>UIStatusBarHidden</key>
 	<false/>
 	<key>UISupportedInterfaceOrientations</key>

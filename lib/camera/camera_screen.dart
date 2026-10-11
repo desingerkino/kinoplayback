@@ -6,21 +6,30 @@ import 'package:permission_handler/permission_handler.dart';
 
 import '../app/app_scope.dart';
 import '../core/layout/adaptive.dart';
+import '../core/layout/orientation_lock.dart';
 import '../core/storage_info.dart';
 import '../core/theme/kp_colors.dart';
 import '../core/theme/kp_text.dart';
 import '../core/widgets/kp_widgets.dart';
 import '../core/widgets/rec_widgets.dart';
 import '../diagnostics/diagnostics_screen.dart';
+import '../external_display/external_display.dart';
+import '../external_display/external_display_sheet.dart';
+import '../motion/orientation_math.dart';
 import '../monitor/monitor_chrome.dart';
 import '../monitor/monitor_view.dart';
+import '../monitor/overlays.dart';
 import '../network/stream_stats.dart';
 import '../recording/takes_screen.dart';
 import 'camera_controller.dart';
 import 'camera_sheets.dart';
 
 class CameraScreen extends StatefulWidget {
-  const CameraScreen({super.key});
+  const CameraScreen({super.key, this.externalDeviceId, this.externalLabel});
+
+  /// External USB/UVC source chosen in "Источник видео" (null = built-in camera).
+  final String? externalDeviceId;
+  final String? externalLabel;
 
   @override
   State<CameraScreen> createState() => _CameraScreenState();
@@ -36,16 +45,41 @@ class _CameraScreenState extends State<CameraScreen> {
     super.didChangeDependencies();
     if (_ctl != null) return;
     final s = AppScope.of(context);
-    final ctl = CameraController(settings: s.settings, repo: s.takes, identity: s.identity);
+    final ctl = CameraController(
+      settings: s.settings,
+      repo: s.takes,
+      identity: s.identity,
+      externalDeviceId: widget.externalDeviceId,
+      externalLabel: widget.externalLabel,
+    );
     ctl.approve = _approve;
     _ctl = ctl;
     unawaited(ctl.start());
+    ctl.addListener(_syncExternalDisplay);
+    ExternalDisplay.instance.addListener(_syncExternalDisplay);
     SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
+    applyOrientationLock(OrientationLockX.parse(s.settings.orientationLock));
+  }
+
+  /// CLEAN FEED: whenever an external screen is present, show the live
+  /// camera track there (re-attached if the camera is switched).
+  void _syncExternalDisplay() {
+    final ctl = _ctl;
+    final ext = ExternalDisplay.instance;
+    final t = ctl?.videoTrack;
+    if (ctl == null || t == null || !ext.connected) return;
+    if (ext.attachedTrackId != t.id) unawaited(ext.show(t));
   }
 
   @override
   void dispose() {
     SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
+    applyOrientationLock(OrientationLock.auto);
+    ExternalDisplay.instance.removeListener(_syncExternalDisplay);
+    if (ExternalDisplay.instance.attachedTrackId != null && ExternalDisplay.instance.attachedTrackId == _ctl?.videoTrack?.id) {
+      unawaited(ExternalDisplay.instance.hide());
+    }
+    _ctl?.removeListener(_syncExternalDisplay);
     final ctl = _ctl;
     if (ctl != null) {
       unawaited(ctl.shutdown().whenComplete(ctl.dispose));
@@ -149,17 +183,116 @@ class _CameraScreenState extends State<CameraScreen> {
     return v.aspectRatio;
   }
 
+  bool _previewMirrored(CameraController c) =>
+      c.facing == 'front' && AppScope.of(context).settings.frontPreviewMirror;
+
+  double _zoomStart = 1;
+
   Widget _monitor(CameraController c) {
     final settings = AppScope.of(context).settings;
-    return GestureDetector(
-      onDoubleTap: _locked ? null : () => settings.update((s) => s.toolFill = !s.toolFill),
-      child: MonitorView(
-        renderer: c.preview,
-        videoAspect: _previewAspect(c),
-        guides: guidesFrom(settings),
-        mirror: c.facing == 'front',
-        hasVideo: c.phase == CameraPhase.ready,
-        placeholder: _placeholder(c),
+    final aspect = _previewAspect(c);
+    final mirrored = _previewMirrored(c);
+    final cover = settings.toolFill;
+    return LayoutBuilder(builder: (context, box) {
+      final size = Size(box.maxWidth, box.maxHeight);
+      Offset? toWidget(Offset? p) => p == null
+          ? null
+          : pictureToWidget(point: p, box: size, aspect: aspect, cover: cover, mirrored: mirrored);
+      final roll = c.motion.roll;
+      return GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onTapUp: (_locked || c.phase != CameraPhase.ready || c.isExternal)
+            ? null
+            : (d) {
+                // Undo fit / mirror so the point refers to the same object in
+                // the camera's own picture coordinates.
+                final p = tapToPicture(tap: d.localPosition, box: size, aspect: aspect, cover: cover, mirrored: mirrored);
+                if (p != null) c.tapAt(p, settings.tapTarget);
+              },
+        onScaleStart: c.caps.zoom && !_locked ? (_) => _zoomStart = c.zoom : null,
+        onScaleUpdate: c.caps.zoom && !_locked
+            ? (d) {
+                if (d.pointerCount < 2) return;
+                final z = (_zoomStart * d.scale).clamp(1.0, 10.0);
+                if ((z - c.zoom).abs() > 0.05) c.zoomTo(z);
+              }
+            : null,
+        child: Stack(fit: StackFit.expand, children: [
+          MonitorView(
+            renderer: c.preview,
+            videoAspect: aspect,
+            guides: guidesFrom(settings),
+            mirror: mirrored,
+            hasVideo: c.phase == CameraPhase.ready,
+            placeholder: _placeholder(c),
+          ),
+          IgnorePointer(
+            child: CustomPaint(
+              painter: ReticlePainter(
+                focus: toWidget(c.focusPoint),
+                exposure: toWidget(c.exposurePoint),
+                afLocked: c.afLocked,
+                aeLocked: c.aeLocked,
+              ),
+            ),
+          ),
+          if (settings.toolHorizon && roll != null && !c.isExternal)
+            IgnorePointer(
+              child: CustomPaint(
+                painter: HorizonPainter(angleDeg: -residualRoll(roll, c.motion.quant), tiltDeg: residualRoll(roll, c.motion.quant)),
+              ),
+            ),
+        ]),
+      );
+    });
+  }
+
+  /// Focus / exposure / zoom / roll strip over the preview.
+  Widget _controlStrip(CameraController c) {
+    final settings = AppScope.of(context).settings;
+    final caps = c.caps;
+    final roll = c.motion.roll;
+    final ext = ExternalDisplay.instance;
+    return AbsorbPointer(
+      absorbing: _locked,
+      child: SingleChildScrollView(
+        scrollDirection: Axis.horizontal,
+        child: Row(children: [
+          if (c.isExternal)
+            KpPill(label: 'USB · ${c.externalLabel ?? 'UVC'}', icon: Icons.usb, enabled: true)
+          else ...[
+            KpPill(
+              label: tapTargetLabel(settings.tapTarget),
+              enabled: caps.focusPoint,
+              onTap: () => settings.update((s) => s.tapTarget = nextTapTarget(s.tapTarget)),
+            ),
+            KpPill(label: 'AF-L', active: c.afLocked, enabled: caps.focusLock, onTap: c.toggleAfLock),
+            KpPill(label: 'AE-L', active: c.aeLocked, enabled: caps.exposureLock, onTap: c.toggleAeLock),
+            KpPill(label: '${c.zoom.toStringAsFixed(1)}×', enabled: caps.zoom, onTap: () => c.zoomTo(c.zoom >= 1.9 ? 1.0 : 2.0)),
+            if (c.facing == 'front')
+              KpPill(
+                label: 'MIRROR',
+                icon: Icons.flip,
+                active: settings.frontPreviewMirror,
+                color: KpColors.text,
+                onTap: () => settings.update((s) => s.frontPreviewMirror = !s.frontPreviewMirror),
+              ),
+            if (roll != null)
+              KpPill(
+                label: 'ROLL ${roll >= 0 ? '+' : ''}${roll.toStringAsFixed(0)}°',
+                active: settings.toolHorizon,
+                color: KpColors.text,
+                onTap: () => settings.update((s) => s.toolHorizon = !s.toolHorizon),
+              ),
+          ],
+          if (ext.connected)
+            KpPill(
+              label: ext.state == ExternalOutputState.outputActive ? 'TV: CLEAN FEED' : 'TV: ПОДКЛЮЧЁН',
+              icon: Icons.connected_tv,
+              color: KpColors.live,
+              onTap: () => showExternalDisplaySheet(context),
+            ),
+        ]),
       ),
     );
   }
@@ -184,7 +317,7 @@ class _CameraScreenState extends State<CameraScreen> {
     return Row(mainAxisSize: MainAxisSize.min, children: [
       KpStatusDot(color: color, pulse: rec || c.phase == CameraPhase.opening),
       const SizedBox(width: 6),
-      Text('CAMERA', style: KpText.label.copyWith(color: color)),
+      Text(c.isExternal ? 'EXTERNAL' : 'CAMERA', style: KpText.label.copyWith(color: color)),
     ]);
   }
 
@@ -305,6 +438,7 @@ class _CameraScreenState extends State<CameraScreen> {
     final items = <Widget>[
       if (c.warning != null) KpBanner(text: c.warning!),
       if (c.recorder.lastError != null) KpBanner(text: c.recorder.lastError!, color: KpColors.rec),
+      if (c.controlError != null) KpBanner(text: c.controlError!),
     ];
     if (items.isEmpty) return const SizedBox.shrink();
     return Column(
@@ -365,10 +499,10 @@ class _CameraScreenState extends State<CameraScreen> {
                   width: railW,
                   child: AbsorbPointer(
                     absorbing: _locked,
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
+                    child: Center(child: FittedBox(fit: BoxFit.scaleDown, child: Column(
+                      mainAxisSize: MainAxisSize.min,
                       children: [
-                        KpRoundButton(icon: Icons.cameraswitch_outlined, tooltip: 'Сменить камеру', onTap: c.recorder.isRecording ? null : c.switchCamera),
+                        if (!c.isExternal) KpRoundButton(icon: Icons.cameraswitch_outlined, tooltip: 'Сменить камеру', onTap: c.recorder.isRecording ? null : c.switchCamera),
                         const SizedBox(height: 14),
                         KpRoundButton(
                           icon: Icons.grid_on,
@@ -379,8 +513,10 @@ class _CameraScreenState extends State<CameraScreen> {
                         KpRoundButton(icon: Icons.qr_code_2, tooltip: 'Подключение', onTap: () => showConnectSheet(context, c)),
                         const SizedBox(height: 14),
                         KpRoundButton(icon: Icons.tune, tooltip: 'Настройки камеры', onTap: () => showCameraSettings(context, c)),
+                        const SizedBox(height: 14),
+                        KpRoundButton(icon: Icons.connected_tv, tooltip: 'Внешний дисплей / AirPlay', onTap: () => showExternalDisplaySheet(context)),
                       ],
-                    ),
+                    ))),
                   ),
                 ),
                 Expanded(
@@ -390,10 +526,11 @@ class _CameraScreenState extends State<CameraScreen> {
                         child: ClipRRect(borderRadius: BorderRadius.circular(6), child: _monitor(c)),
                       ),
                       Positioned(left: 8, top: 8, right: 8, child: _warnings(c)),
+                      Positioned(left: 8, right: 8, bottom: 8, child: _controlStrip(c)),
                       if (_locked)
                         Positioned(
                           left: 8,
-                          bottom: 8,
+                          bottom: 44,
                           child: KpBanner(text: 'Экран заблокирован', color: KpColors.warn, icon: Icons.lock),
                         ),
                     ],
@@ -401,16 +538,18 @@ class _CameraScreenState extends State<CameraScreen> {
                 ),
                 SizedBox(
                   width: railW + 24,
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
+                  child: Center(child: FittedBox(fit: BoxFit.scaleDown, child: Column(
+                    mainAxisSize: MainAxisSize.min,
                     children: [
                       KpAudioMeter(level: c.hasAudio ? c.audioLevel : null, height: 80),
                       const SizedBox(height: 18),
                       _rec(c, size: recSize),
                       const SizedBox(height: 18),
                       _lockButton(),
+                      const SizedBox(height: 12),
+                      OrientationLockButton(settings: AppScope.of(context).settings),
                     ],
-                  ),
+                  ))),
                 ),
               ],
             ),
@@ -457,6 +596,7 @@ class _CameraScreenState extends State<CameraScreen> {
               children: [
                 Positioned.fill(child: _monitor(c)),
                 Positioned(left: 8, top: 8, right: 8, child: _warnings(c)),
+                Positioned(left: 8, right: 8, bottom: 8, child: _controlStrip(c)),
                 Positioned(
                   right: 8,
                   top: 0,
@@ -484,7 +624,13 @@ class _CameraScreenState extends State<CameraScreen> {
                 Expanded(
                   child: Row(
                     mainAxisAlignment: MainAxisAlignment.end,
-                    children: [_lastTakeButton(c), const SizedBox(width: 10), _lockButton()],
+                    children: [
+                      _lastTakeButton(c),
+                      const SizedBox(width: 8),
+                      _lockButton(),
+                      const SizedBox(width: 8),
+                      OrientationLockButton(settings: AppScope.of(context).settings, size: 40),
+                    ],
                   ),
                 ),
               ],
@@ -502,25 +648,25 @@ class _CameraScreenState extends State<CameraScreen> {
             child: Padding(
               padding: const EdgeInsets.only(bottom: 4),
               child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceAround,
                 children: [
-                  KpToolButton(
+                  Expanded(child: KpToolButton(
                     icon: Icons.grid_on,
-                    label: 'Монитор', width: 72,
+                    label: 'Монитор', width: double.infinity,
                     onTap: () => showMonitorTools(context, settings: AppScope.of(context).settings),
-                  ),
-                  KpToolButton(
+                  )),
+                  Expanded(child: KpToolButton(
                     icon: Icons.video_library_outlined,
-                    label: 'Дубли', width: 72,
+                    label: 'Дубли', width: double.infinity,
                     onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const TakesScreen())),
-                  ),
-                  KpToolButton(icon: Icons.qr_code_2, label: 'Трансляция', width: 72, onTap: () => showConnectSheet(context, c)),
-                  KpToolButton(icon: Icons.tune, label: 'Настройки', width: 72, onTap: () => showCameraSettings(context, c)),
-                  KpToolButton(
+                  )),
+                  Expanded(child: KpToolButton(icon: Icons.qr_code_2, label: 'Трансляция', width: double.infinity, onTap: () => showConnectSheet(context, c))),
+                  Expanded(child: KpToolButton(icon: Icons.connected_tv, label: 'TV', width: double.infinity, onTap: () => showExternalDisplaySheet(context))),
+                  Expanded(child: KpToolButton(icon: Icons.tune, label: 'Настройки', width: double.infinity, onTap: () => showCameraSettings(context, c))),
+                  Expanded(child: KpToolButton(
                     icon: Icons.monitor_heart_outlined,
-                    label: 'Диагн.', width: 72,
+                    label: 'Диагн.', width: double.infinity,
                     onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => DiagnosticsScreen(camera: c))),
-                  ),
+                  )),
                 ],
               ),
             ),

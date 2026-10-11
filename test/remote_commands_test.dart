@@ -18,10 +18,10 @@ class _Link {
   int executed = 0;
   final List<KpMessage> toCamera = [];
   late final RemoteCommandHandler handler = RemoteCommandHandler(
-    isRemoteAllowed: () => allowed,
-    execute: (t) {
+    isRemoteAllowed: (_) => allowed,
+    execute: (m) {
       executed++;
-      return exec(t);
+      return exec(m.type);
     },
   );
   late final CommandTracker tracker = CommandTracker(send: _send);
@@ -181,10 +181,32 @@ void main() {
   });
 
   test('handler rejects unknown command types', () async {
-    final h = RemoteCommandHandler(isRemoteAllowed: () => true, execute: (_) async => null);
+    final h = RemoteCommandHandler(isRemoteAllowed: (_) => true, execute: (_) async => null);
     final replies = <KpMessage>[];
     await h.handle(KpMessage(type: 'format.disk'), replies.add);
     expect(replies.last.payload['stage'], 'rejected');
     expect(replies.last.payload['err'], CmdError.unknownCommand);
+  });
+
+  test('camera-control commands use their own permission', () async {
+    final h = RemoteCommandHandler(
+      isRemoteAllowed: (t) => MsgType.recCommands.contains(t),
+      execute: (_) async => null,
+    );
+    final replies = <KpMessage>[];
+    await h.handle(KpMessage(type: MsgType.camFocus, payload: {'x': 0.5, 'y': 0.5}), replies.add);
+    expect(replies.last.payload['stage'], 'rejected');
+    expect(replies.last.payload['err'], CmdError.remoteCameraDisabled);
+    await h.handle(KpMessage(type: MsgType.recStart), replies.add);
+    expect(replies.last.payload['stage'], 'done');
+  });
+
+  test('payload travels with the command', () {
+    fakeAsync((fa) {
+      final link = _Link(allowed: true, exec: (_) async => null);
+      link.tracker.issue(MsgType.camFocus, payload: {'x': 0.25, 'y': 0.75, 'target': 'both'});
+      expect(link.toCamera.single.payload['x'], 0.25);
+      fa.flushMicrotasks();
+    });
   });
 }

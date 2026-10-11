@@ -119,6 +119,25 @@ class AppSettings extends ChangeNotifier {
   bool toolSafe = false;
   String toolAspect = 'off'; // off | 1:1 | 4:3 | 16:9 | 1.85:1 | 2.39:1
   bool toolFill = false;
+  bool toolHorizon = false;
+
+  // Orientation
+  String orientationLock = 'auto'; // auto | portrait | landscapeLeft | landscapeRight
+  String rotationMode = 'autoSync'; // RotationMode.name (PLAYBACK display)
+  double manualRotation = 0;
+  bool rollInvert = false;
+
+  // Front camera mirror — three independent switches.
+  bool frontPreviewMirror = true;
+  bool recordingMirror = false; // not supported by the current recorder
+  bool playbackMirror = false;
+
+  // Focus / exposure
+  bool remoteCameraControl = false; // PLAYBACK may set focus/exposure
+  String tapTarget = 'both'; // both | focus | exposure
+
+  // External display
+  String externalOutput = 'clean'; // clean
 
   void _read() {
     final p = _prefs;
@@ -145,6 +164,17 @@ class AppSettings extends ChangeNotifier {
     toolSafe = p.getBool('toolSafe') ?? false;
     toolAspect = p.getString('toolAspect') ?? 'off';
     toolFill = p.getBool('toolFill') ?? false;
+    toolHorizon = p.getBool('toolHorizon') ?? false;
+    orientationLock = p.getString('orientationLock') ?? 'auto';
+    rotationMode = p.getString('rotationMode') ?? 'autoSync';
+    manualRotation = p.getDouble('manualRotation') ?? 0;
+    rollInvert = p.getBool('rollInvert') ?? false;
+    frontPreviewMirror = p.getBool('frontPreviewMirror') ?? true;
+    recordingMirror = p.getBool('recordingMirror') ?? false;
+    playbackMirror = p.getBool('playbackMirror') ?? false;
+    remoteCameraControl = p.getBool('remoteCameraControl') ?? false;
+    tapTarget = p.getString('tapTarget') ?? 'both';
+    externalOutput = p.getString('externalOutput') ?? 'clean';
     try {
       final r = jsonDecode(p.getString('recent') ?? '[]') as List;
       recent = r.map(RecentDevice.fromJson).whereType<RecentDevice>().toList();
@@ -179,6 +209,17 @@ class AppSettings extends ChangeNotifier {
     await p.setBool('toolSafe', toolSafe);
     await p.setString('toolAspect', toolAspect);
     await p.setBool('toolFill', toolFill);
+    await p.setBool('toolHorizon', toolHorizon);
+    await p.setString('orientationLock', orientationLock);
+    await p.setString('rotationMode', rotationMode);
+    await p.setDouble('manualRotation', manualRotation);
+    await p.setBool('rollInvert', rollInvert);
+    await p.setBool('frontPreviewMirror', frontPreviewMirror);
+    await p.setBool('recordingMirror', recordingMirror);
+    await p.setBool('playbackMirror', playbackMirror);
+    await p.setBool('remoteCameraControl', remoteCameraControl);
+    await p.setString('tapTarget', tapTarget);
+    await p.setString('externalOutput', externalOutput);
     await p.setString('recent', jsonEncode(recent.map((e) => e.toJson()).toList()));
     await p.setString('trusted', jsonEncode(trusted));
   }
@@ -212,4 +253,13 @@ class AppSettings extends ChangeNotifier {
     notifyListeners();
     _save();
   }
+}
+
+/// Reset only the front-camera mirror preferences to their defaults.
+extension MirrorDefaults on AppSettings {
+  void resetMirrorDefaults() => update((s) {
+        s.frontPreviewMirror = true;
+        s.recordingMirror = false;
+        s.playbackMirror = false;
+      });
 }

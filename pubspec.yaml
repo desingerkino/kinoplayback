@@ -29,6 +29,8 @@ dependencies:
   shared_preferences: ^2.3.0
   path_provider: ^2.1.0
   ffi: ^2.1.0
+  # Camera Motion Sync (gravity → roll)
+  sensors_plus: ">=6.0.0 <8.0.0"
 
 dev_dependencies:
   flutter_test:

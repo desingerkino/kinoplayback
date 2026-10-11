@@ -3,7 +3,9 @@ import 'package:flutter/services.dart';
 
 import '../app/app_scope.dart';
 import '../camera/camera_controller.dart';
+import '../core/brand/kp_logo.dart';
 import '../core/event_log.dart';
+import '../external_display/external_display.dart';
 import '../core/layout/adaptive.dart';
 import '../core/storage_info.dart';
 import '../core/theme/kp_colors.dart';
@@ -87,6 +89,16 @@ class DiagnosticsScreen extends StatelessWidget {
             final left = <Widget>[
               if (playback != null) _playbackSection(playback!),
               if (camera != null) _cameraSection(camera!, s.settings.remoteControlAllowed),
+              const Padding(padding: EdgeInsets.only(bottom: 12), child: KpLogo(height: 28)),
+              KpSection(title: 'Внешний дисплей', children: [
+                KpRow(label: 'Статус', value: ExternalDisplay.instance.state.label),
+                KpRow(
+                  label: 'Экран',
+                  value: ExternalDisplay.instance.width == null
+                      ? '—'
+                      : '${ExternalDisplay.instance.width}×${ExternalDisplay.instance.height}',
+                ),
+              ]),
               KpSection(title: 'Устройство', children: [
                 KpRow(label: 'Модель', value: s.identity.model),
                 KpRow(label: s.identity.platform, value: s.identity.osVersion),
@@ -165,6 +177,13 @@ class DiagnosticsScreen extends StatelessWidget {
         KpRow(label: 'Потеряно всего', value: st?.packetsLost?.toString() ?? '—'),
         KpRow(label: 'Отброшено кадров', value: st?.framesDropped?.toString() ?? '—'),
         KpRow(label: 'Аудио', value: p.hasRemoteAudio ? 'принимается' : 'нет'),
+        KpRow(label: 'Поворот изображения', value: p.orientation.mode.name),
+        KpRow(
+          label: 'Наклон камеры (roll)',
+          value: p.orientation.cameraRoll == null || !p.orientation.hasFreshData(p.nowMs)
+              ? 'NO DATA'
+              : '${p.orientation.cameraRoll!.toStringAsFixed(1)}°',
+        ),
         KpRow(
           label: 'Состояние камеры',
           value: p.camState == null
@@ -193,6 +212,10 @@ class DiagnosticsScreen extends StatelessWidget {
         KpRow(label: 'Запись', value: c.recorder.isRecording ? 'REC · ${c.recorder.current?.name}' : 'нет'),
         KpRow(label: 'Удалённый REC', value: remoteAllowed ? 'разрешён' : 'запрещён'),
         KpRow(label: 'Аудио', value: c.hasAudio ? 'включено' : 'выключено'),
+        KpRow(label: 'Источник', value: c.isExternal ? 'внешний: ${c.externalLabel}' : 'камера устройства'),
+        KpRow(label: 'Датчик наклона', value: c.motion.available ? (c.motion.roll == null ? 'лежит горизонтально / нет данных' : '${c.motion.roll!.toStringAsFixed(1)}°') : 'NOT AVAILABLE'),
+        KpRow(label: 'Пакетов ориентации отправлено', value: '${c.motionSamplesSent}'),
+        KpRow(label: 'Фокус / экспозиция', value: '${c.afLocked ? 'AF-L' : 'AF'} · ${c.aeLocked ? 'AE-L' : 'AE'} · ${c.zoom.toStringAsFixed(1)}×'),
       ],
     );
   }

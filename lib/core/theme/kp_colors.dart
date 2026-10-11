@@ -1,39 +1,40 @@
 import 'package:flutter/painting.dart';
 
-/// KINO PLAYBACK colour tokens.
+/// KINO PLAYBACK colour tokens (brand guide v1).
 ///
-/// Graphite surfaces around a pure-black monitor, one saturated red reserved
-/// for REC, green for "ready / live", amber/orange for warnings. Accent gold
-/// is brand-only (logo, launch screen) and never used for state.
+/// Black / graphite surfaces, white text, one red (#FF1E2D) reserved for REC,
+/// active commands and critical warnings. Green appears only as a functional
+/// "confirmed working" indicator, amber only for non-critical warnings.
+/// No orange, blue or purple accents.
 abstract final class KpColors {
   // Surfaces
   static const Color monitor = Color(0xFF000000);
-  static const Color bg = Color(0xFF07080A);
-  static const Color surface = Color(0xFF101216);
-  static const Color surface2 = Color(0xFF171A1F);
-  static const Color surface3 = Color(0xFF20242A);
-  static const Color stroke = Color(0xFF262A31);
-  static const Color strokeStrong = Color(0xFF363C46);
+  static const Color bg = Color(0xFF0A0A0A);
+  static const Color surface = Color(0xFF121212);
+  static const Color surface2 = Color(0xFF1B1B1B);
+  static const Color surface3 = Color(0xFF252525);
+  static const Color stroke = Color(0xFF2A2A2A);
+  static const Color strokeStrong = Color(0xFF3A3A3A);
 
   // Text
-  static const Color text = Color(0xFFF2F4F7);
-  static const Color textDim = Color(0xFF9BA3AE);
-  static const Color textMute = Color(0xFF5E6672);
+  static const Color text = Color(0xFFFFFFFF);
+  static const Color textDim = Color(0xFFA0A0A0);
+  static const Color textMute = Color(0xFF636363);
 
-  // State
-  static const Color rec = Color(0xFFE5322D);
-  static const Color recDeep = Color(0xFF8E1814);
-  static const Color live = Color(0xFF2FD36B);
+  // Brand / state
+  static const Color rec = Color(0xFFFF1E2D);
+  static const Color recDeep = Color(0xFF7A0E16);
+  static const Color live = Color(0xFF2FD36B); // functional only
   static const Color liveDeep = Color(0xFF0F3D22);
-  static const Color warn = Color(0xFFF5A524);
-  static const Color alert = Color(0xFFFF7A1A);
-  static const Color inactive = Color(0xFF4A515C);
+  static const Color warn = Color(0xFFFFC21A); // functional only
+  static const Color alert = rec;
+  static const Color inactive = Color(0xFF4A4A4A);
 
-  /// Selection outline for tools / segmented controls.
-  static const Color select = Color(0xFF4C8DFF);
+  /// Selection outline for tools / segmented controls (neutral, not a hue).
+  static const Color select = Color(0xFFFFFFFF);
 
-  /// Brand accent (logo tagline only).
-  static const Color brand = Color(0xFFE3A53B);
+  /// Brand accent = brand red.
+  static const Color brand = rec;
 
   // Overlays on top of video
   static const Color scrim = Color(0xB3000000);

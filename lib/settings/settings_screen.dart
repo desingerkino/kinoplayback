@@ -1,6 +1,13 @@
 import 'package:flutter/material.dart';
+import 'package:permission_handler/permission_handler.dart';
 
 import '../app/app_scope.dart';
+import '../core/brand/kp_logo.dart';
+import '../core/layout/orientation_lock.dart';
+import '../external_display/external_display_sheet.dart';
+import '../motion/orientation_sync.dart';
+import '../transmitters/schemes_screen.dart';
+import '../transmitters/transmitters_screen.dart';
 import '../core/layout/adaptive.dart';
 import '../core/storage_info.dart';
 import '../core/theme/kp_colors.dart';
@@ -10,11 +17,16 @@ import '../diagnostics/diagnostics_screen.dart';
 import '../network/stream_stats.dart';
 import 'app_settings.dart';
 
-enum _Sec { video, audio, connection, ui, storage, about }
+enum _Sec { video, camera, rotation, audio, connection, transmitters, display, permissions, ui, storage, about }
 
 extension on _Sec {
   String get title => switch (this) {
         _Sec.video => 'Видео',
+        _Sec.camera => 'Камера',
+        _Sec.rotation => 'Ориентация',
+        _Sec.transmitters => 'Внешние видеолинки',
+        _Sec.display => 'Внешний дисплей',
+        _Sec.permissions => 'Разрешения и безопасность',
         _Sec.audio => 'Аудио',
         _Sec.connection => 'Соединение',
         _Sec.ui => 'Интерфейс',
@@ -23,6 +35,11 @@ extension on _Sec {
       };
   IconData get icon => switch (this) {
         _Sec.video => Icons.videocam_outlined,
+        _Sec.camera => Icons.camera_outlined,
+        _Sec.rotation => Icons.screen_rotation_alt,
+        _Sec.transmitters => Icons.settings_input_antenna,
+        _Sec.display => Icons.connected_tv,
+        _Sec.permissions => Icons.verified_user_outlined,
         _Sec.audio => Icons.graphic_eq,
         _Sec.connection => Icons.lan_outlined,
         _Sec.ui => Icons.tune,
@@ -146,6 +163,113 @@ class _SectionBody extends StatelessWidget {
                 ],
               ),
             ],
+          _Sec.camera => [
+              KpSection(
+                title: 'FRONT CAMERA',
+                footer: 'Три независимые настройки. Зеркалирование применяется только к фронтальной камере и только к изображению на экране; '
+                    'файл и поток на монитор не отражаются.',
+                children: [
+                  KpSwitchRow(
+                    label: 'Preview Mirror',
+                    subtitle: 'Зеркальный предпросмотр в CAMERA (можно менять во время записи)',
+                    value: s.frontPreviewMirror,
+                    onChanged: (v) => s.update((x) => x.frontPreviewMirror = v),
+                  ),
+                  const KpSwitchRow(
+                    label: 'Recording Mirror',
+                    subtitle: 'Не поддерживается текущим рекордером: файл всегда пишется без отражения',
+                    value: false,
+                    onChanged: null,
+                  ),
+                  KpSwitchRow(
+                    label: 'Playback Mirror',
+                    subtitle: 'Отражение на этом устройстве в режиме PLAYBACK (локально, файл камеры не меняется)',
+                    value: s.playbackMirror,
+                    onChanged: (v) => s.update((x) => x.playbackMirror = v),
+                  ),
+                  KpRow(label: 'Reset to Default', onTap: s.resetMirrorDefaults),
+                ],
+              ),
+              KpSection(
+                title: 'Фокус и экспозиция',
+                footer: 'Касание в CAMERA ставит точку фокуса и/или экспозамера. Через текущий движок камеры доступны: точка фокуса, '
+                    'точка экспозиции, AF LOCK, AE LOCK (только iOS), зум. Ручной фокус, ISO, выдержка, баланс белого и EV — недоступны.',
+                children: [
+                  KpRow(
+                    label: 'Касание по изображению',
+                    value: switch (s.tapTarget) { 'focus' => 'Фокус', 'exposure' => 'Экспозиция', _ => 'Фокус + экспозиция' },
+                    onTap: () => s.update((x) => x.tapTarget = switch (x.tapTarget) { 'both' => 'focus', 'focus' => 'exposure', _ => 'both' }),
+                  ),
+                  KpSwitchRow(
+                    label: 'Управление фокусом/экспозицией с монитора',
+                    subtitle: 'PLAYBACK сможет ставить точки и AE/AF LOCK; каждое действие подтверждается камерой',
+                    value: s.remoteCameraControl,
+                    onChanged: (v) => s.update((x) => x.remoteCameraControl = v),
+                  ),
+                ],
+              ),
+            ],
+          _Sec.rotation => [
+              KpSection(
+                title: 'Блокировка ориентации интерфейса',
+                footer: 'Работает в CAMERA и PLAYBACK. Запись, соединение и данные о наклоне камеры при этом не сбрасываются. '
+                    'На iPad для блокировки приложение работает в полноэкранном режиме (без Split View).',
+                children: [
+                  for (final o in OrientationLock.values)
+                    KpRow(
+                      leading: Icon(o.icon, size: 18, color: KpColors.textDim),
+                      label: o.label,
+                      trailing: s.orientationLock == o.name ? const Icon(Icons.check, color: KpColors.text, size: 18) : null,
+                      onTap: () => s.update((x) => x.orientationLock = o.name),
+                    ),
+                ],
+              ),
+              KpSection(
+                title: 'Camera Motion Sync (PLAYBACK)',
+                footer: 'Наклон камеры измеряется её датчиком гравитации (без интегрирования гироскопа — без дрейфа) и передаётся '
+                    '15 раз в секунду по каналу данных сессии. Влияет только на отображение монитора.',
+                children: [
+                  for (final m in RotationMode.values)
+                    KpRow(
+                      label: m.label,
+                      subtitle: m.hint,
+                      trailing: s.rotationMode == m.name ? const Icon(Icons.check, color: KpColors.text, size: 18) : null,
+                      onTap: () => s.update((x) => x.rotationMode = m.name),
+                    ),
+                  KpSwitchRow(label: 'Индикатор горизонта', value: s.toolHorizon, onChanged: (v) => s.update((x) => x.toolHorizon = v)),
+                  KpSwitchRow(
+                    label: 'Инвертировать крен',
+                    subtitle: 'Если на конкретной паре устройств наклон показывается в обратную сторону',
+                    value: s.rollInvert,
+                    onChanged: (v) => s.update((x) => x.rollInvert = v),
+                  ),
+                ],
+              ),
+            ],
+          _Sec.transmitters => [
+              KpSection(children: [
+                KpRow(
+                  label: 'Каталог VAXIS / Accsoon',
+                  subtitle: 'Модели, статусы совместимости, источники, журнал тестов',
+                  onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const TransmittersScreen())),
+                ),
+                KpRow(
+                  label: 'Схемы подключения',
+                  onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const SchemesScreen())),
+                ),
+              ]),
+            ],
+          _Sec.display => [
+              KpSection(
+                footer: 'CLEAN FEED: на внешний экран выводится только изображение. Подключение — через Пункт управления → '
+                    '«Повтор экрана» (Apple TV / AirPlay) или проводной адаптер; на Android — презентационный дисплей.',
+                children: [
+                  const KpRow(label: 'Режим вывода', value: 'CLEAN FEED'),
+                  KpRow(label: 'Статус и подключение', onTap: () => showExternalDisplaySheet(context)),
+                ],
+              ),
+            ],
+          _Sec.permissions => [const _PermissionsSection()],
           _Sec.audio => [
               KpSection(
                 footer: 'Звук захватывается в CAMERA, записывается в оригинал и передаётся на монитор. '
@@ -225,6 +349,10 @@ class _SectionBody extends StatelessWidget {
               ),
             ],
           _Sec.about => [
+              const Padding(
+                padding: EdgeInsets.symmetric(vertical: 16),
+                child: Center(child: KpLogo(height: 44)),
+              ),
               KpSection(children: [
                 KpRow(label: 'KINO PLAYBACK', value: app.identity.appVersion),
                 KpRow(label: 'Устройство', value: '${app.identity.model} · ${app.identity.platform} ${app.identity.osVersion}'),
@@ -305,5 +433,90 @@ class _SectionBody extends StatelessWidget {
         ],
       ),
     ).whenComplete(c.dispose);
+  }
+}
+
+/// Real permission states from the OS, with a way to the system settings.
+class _PermissionsSection extends StatefulWidget {
+  const _PermissionsSection();
+
+  @override
+  State<_PermissionsSection> createState() => _PermissionsSectionState();
+}
+
+class _PermissionsSectionState extends State<_PermissionsSection> {
+  final Map<String, PermissionStatus?> _st = {};
+
+  static final _perms = <String, Permission>{
+    'Камера': Permission.camera,
+    'Микрофон': Permission.microphone,
+    'Фото (добавление)': Permission.photosAddOnly,
+  };
+
+  @override
+  void initState() {
+    super.initState();
+    _load();
+  }
+
+  Future<void> _load() async {
+    for (final e in _perms.entries) {
+      try {
+        _st[e.key] = await e.value.status;
+      } catch (_) {
+        _st[e.key] = null;
+      }
+    }
+    if (mounted) setState(() {});
+  }
+
+  String _label(PermissionStatus? s) => switch (s) {
+        PermissionStatus.granted => 'разрешено',
+        PermissionStatus.limited => 'ограничено',
+        PermissionStatus.denied => 'не запрошено / отклонено',
+        PermissionStatus.permanentlyDenied => 'запрещено',
+        PermissionStatus.restricted => 'ограничено системой',
+        PermissionStatus.provisional => 'временно',
+        null => 'NO DATA',
+      };
+
+  @override
+  Widget build(BuildContext context) {
+    final s = AppScope.of(context).settings;
+    return Column(children: [
+      KpSection(
+        title: 'Системные разрешения',
+        footer: 'Локальная сеть (iOS) запрашивается при первом поиске камер; её состояние приложение прочитать не может.',
+        children: [
+          for (final e in _perms.entries)
+            KpRow(
+              label: e.key,
+              value: _label(_st[e.key]),
+              valueColor: _st[e.key] == PermissionStatus.granted ? KpColors.live : KpColors.warn,
+            ),
+          KpRow(label: 'Открыть настройки системы', onTap: () => openAppSettings()),
+        ],
+      ),
+      KpSection(
+        title: 'Безопасность сессий',
+        footer: 'Видео, звук и команды идут напрямую между устройствами и шифруются WebRTC (DTLS-SRTP). Каждое новое устройство '
+            'подтверждается на камере; команды имеют уникальные ID и подтверждение выполнения. Сигнализация по LAN не шифруется.',
+        children: [
+          KpSwitchRow(
+            label: 'Удалённый REC',
+            value: s.remoteControlAllowed,
+            onChanged: (v) => s.update((x) => x.remoteControlAllowed = v),
+          ),
+          KpSwitchRow(
+            label: 'Удалённый фокус / экспозиция',
+            value: s.remoteCameraControl,
+            onChanged: (v) => s.update((x) => x.remoteCameraControl = v),
+          ),
+          KpRow(label: 'Доверенные мониторы', value: '${s.trusted.length}'),
+          if (s.trusted.isNotEmpty)
+            KpRow(label: 'Сбросить доверие', valueColor: KpColors.rec, onTap: () => s.update((x) => x.trusted = {})),
+        ],
+      ),
+    ]);
   }
 }

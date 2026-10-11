@@ -9,6 +9,7 @@ import 'package:wakelock_plus/wakelock_plus.dart';
 
 import '../core/device_identity.dart';
 import '../core/event_log.dart';
+import '../motion/orientation_sync.dart';
 import '../network/net_utils.dart';
 import '../network/rtc.dart';
 import '../network/signaling.dart';
@@ -72,6 +73,14 @@ class PlaybackController extends ChangeNotifier with WidgetsBindingObserver {
   MediaStreamTrack? _remoteAudio;
   bool hasRemoteAudio = false;
   bool monitorMuted = false;
+
+  /// Camera Motion Sync state for this session.
+  final CameraOrientationSync orientation = CameraOrientationSync();
+  final Stopwatch _clock = Stopwatch()..start();
+  int get nowMs => _clock.elapsedMilliseconds;
+
+  /// Point the director tapped, shown until the camera confirms / rejects.
+  Offset? pendingFocus;
 
   late final CommandTracker tracker = CommandTracker(
     send: (m) {
@@ -198,6 +207,7 @@ class PlaybackController extends ChangeNotifier with WidgetsBindingObserver {
           remoteModel = (m.payload['model'] as String?) ?? '';
           remoteApp = m.payload['app'] as String?;
           phase = LinkPhase.negotiating;
+          orientation.reset(sessionId);
           logI('play', 'принят камерой $remoteName ($remotePlatform $remoteModel), сессия $sessionId');
           settings.rememberRecent(RecentDevice(
             name: remoteName,
@@ -318,8 +328,18 @@ class PlaybackController extends ChangeNotifier with WidgetsBindingObserver {
           logI('play', 'камера: запись ${s.recording ? 'ИДЁТ (${s.clipName})' : 'остановлена'}');
         }
         _notify();
+      case MsgType.motion:
+        if (m.sessionId != null && sessionId != null && m.sessionId != sessionId) return;
+        final sample = MotionSample.fromJson(m.payload, sessionId: m.sessionId);
+        if (sample != null) orientation.ingest(sample, nowMs);
       case MsgType.cmdStatus:
         tracker.onStatus(m);
+        final id = m.payload['cmd'];
+        final cmd = id is String ? tracker.byId(id) : null;
+        if (cmd != null && cmd.type == MsgType.camFocus && cmd.isFinal) {
+          pendingFocus = null;
+          _notify();
+        }
       case MsgType.takes:
         final list = m.payload['takes'];
         if (list is List) {
@@ -434,6 +454,37 @@ class PlaybackController extends ChangeNotifier with WidgetsBindingObserver {
       return null;
     }
     return tracker.issue(rec ? MsgType.recStop : MsgType.recStart, sessionId: sessionId);
+  }
+
+  bool get canControlCamera =>
+      isLive && controlOpen && !stateStale && (camState?.remoteCameraControl ?? false);
+
+  /// Sends a focus / exposure point (normalised picture coordinates, after
+  /// undoing this monitor's own mirror / rotation / fit).
+  TrackedCommand? remoteFocus(Offset p, String target) {
+    if (!canControlCamera) {
+      message = camState?.remoteCameraControl == false
+          ? 'На камере не разрешено управление фокусом/экспозицией'
+          : 'Нет связи с камерой';
+      _notify();
+      return null;
+    }
+    pendingFocus = p;
+    _notify();
+    return tracker.issue(MsgType.camFocus, sessionId: sessionId, payload: {'x': p.dx, 'y': p.dy, 'target': target});
+  }
+
+  TrackedCommand? remoteLock({bool? af, bool? ae}) {
+    if (!canControlCamera) return null;
+    return tracker.issue(MsgType.camLock, sessionId: sessionId, payload: {
+      if (af != null) 'af': af,
+      if (ae != null) 'ae': ae,
+    });
+  }
+
+  TrackedCommand? remoteZoom(double z) {
+    if (!canControlCamera) return null;
+    return tracker.issue(MsgType.camZoom, sessionId: sessionId, payload: {'z': z});
   }
 
   Future<void> toggleLocalRec() async {

@@ -16,6 +16,9 @@ import 'package:kinoplayback/playback/playback_screen.dart';
 import 'package:kinoplayback/recording/takes.dart';
 import 'package:kinoplayback/settings/app_settings.dart';
 import 'package:kinoplayback/settings/settings_screen.dart';
+import 'package:kinoplayback/transmitters/catalog.dart';
+import 'package:kinoplayback/transmitters/schemes_screen.dart';
+import 'package:kinoplayback/transmitters/transmitters_screen.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 /// Renders the real screens at phone / tablet sizes in both orientations
@@ -137,5 +140,9 @@ void main() {
     testWidgets('playback ${e.key}', (t) => _shot(t, 'playback_${e.key}', e.value,
         () => const PlaybackScreen(target: ConnectTarget('192.168.1.112', 47800, name: 'iPhone (Актёр)'))));
     testWidgets('settings ${e.key}', (t) => _shot(t, 'settings_${e.key}', e.value, () => const SettingsScreen()));
+    testWidgets('transmitters ${e.key}', (t) => _shot(t, 'transmitters_${e.key}', e.value, () => const TransmittersScreen()));
   }
+  testWidgets('transmitter card', (t) => _shot(t, 'card_cineview2sdi', const Size(393, 852),
+      () => TransmitterCardScreen(model: kTransmitters.firstWhere((m) => m.id == 'accsoon-cineview-2-sdi'))));
+  testWidgets('schemes', (t) => _shot(t, 'schemes', const Size(393, 852), () => const SchemesScreen()));
 }

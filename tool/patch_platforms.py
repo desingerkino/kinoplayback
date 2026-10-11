@@ -98,7 +98,8 @@ def patch_ios():
         "NSBonjourServices": [BONJOUR_TYPE],
         "UIFileSharingEnabled": True,
         "LSSupportsOpeningDocumentsInPlace": True,
-        "UIRequiresFullScreen": False,
+        "UIRequiresFullScreen": True,  # iPad: needed for orientation lock to apply
+        "NSMotionUsageDescription": "Датчики движения нужны, чтобы передавать наклон камеры на монитор (Camera Motion Sync).",
         "UIStatusBarHidden": False,
         "UIViewControllerBasedStatusBarAppearance": True,
         "UISupportedInterfaceOrientations": [
@@ -113,7 +114,21 @@ def patch_ios():
             "UIInterfaceOrientationLandscapeRight",
         ],
     }
-    dirty = False
+    # External display scene (AirPlay screen mirroring / HDMI): clean feed.
+    scene_dirty = False
+    sm = pl.get("UIApplicationSceneManifest")
+    if isinstance(sm, dict):
+        cfgs = sm.setdefault("UISceneConfigurations", {})
+        ext = [{
+            "UISceneClassName": "UIWindowScene",
+            "UISceneConfigurationName": "KinoExternalDisplay",
+            "UISceneDelegateClassName": "$(PRODUCT_MODULE_NAME).ExternalDisplaySceneDelegate",
+        }]
+        for role in ("UIWindowSceneSessionRoleExternalDisplayNonInteractive", "UIWindowSceneSessionRoleExternalDisplay"):
+            if cfgs.get(role) != ext:
+                cfgs[role] = ext
+                scene_dirty = True
+    dirty = scene_dirty
     for k, v in want.items():
         if pl.get(k) != v:
             pl[k] = v
