@@ -28,7 +28,8 @@ Future<AppServices> services() async {
   SharedPreferences.setMockInitialValues({});
   final settings = await AppSettings.load();
   settings.deviceName = 'Test iPhone';
-  final dir = await Directory.systemTemp.createTemp('kp_takes');
+  // Sync IO: real async IO never completes inside testWidgets' fake zone.
+  final dir = Directory.systemTemp.createTempSync('kp_takes');
   return AppServices(
     settings: settings,
     takes: TakesRepository.forDirectory(dir),
