@@ -76,7 +76,12 @@ void _mockPlugins() {
         return null;
     }
   });
-  for (final name in ['FlutterWebRTC/Texture1', 'FlutterWebRTC.Event']) {
+  m.setMockMethodCallHandler(const MethodChannel('dev.fluttercommunity.plus/sensors/method'), (call) async => null);
+  for (final name in [
+    'FlutterWebRTC/Texture1',
+    'FlutterWebRTC.Event',
+    'dev.fluttercommunity.plus/sensors/accelerometer',
+  ]) {
     m.setMockStreamHandler(EventChannel(name), MockStreamHandler.inline(onListen: (args, sink) {}));
   }
   m.setMockMethodCallHandler(const MethodChannel('dev.fluttercommunity.plus/battery'), (call) async => 82);

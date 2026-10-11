@@ -622,8 +622,12 @@ class _CameraScreenState extends State<CameraScreen> {
                 ),
                 _rec(c, size: recSize),
                 Expanded(
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.end,
+                  child: Align(
+                    alignment: Alignment.centerRight,
+                    child: FittedBox(
+                      fit: BoxFit.scaleDown,
+                      child: Row(
+                    mainAxisSize: MainAxisSize.min,
                     children: [
                       _lastTakeButton(c),
                       const SizedBox(width: 8),
@@ -631,6 +635,8 @@ class _CameraScreenState extends State<CameraScreen> {
                       const SizedBox(width: 8),
                       OrientationLockButton(settings: AppScope.of(context).settings, size: 40),
                     ],
+                  ),
+                    ),
                   ),
                 ),
               ],
