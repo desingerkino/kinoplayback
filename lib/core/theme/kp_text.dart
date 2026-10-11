@@ -8,11 +8,14 @@ abstract final class KpText {
   static const String family = 'Inter';
   static const List<FontFeature> _tab = [FontFeature.tabularFigures()];
 
+  /// Wordmark face (Unbounded, Latin only) — used for KINO / PLAYBACK.
+  static const String wordmarkFamily = 'Unbounded';
+
   static const TextStyle logo = TextStyle(
-    fontFamily: family,
+    fontFamily: wordmarkFamily,
     fontSize: 44,
-    fontWeight: FontWeight.w700,
-    letterSpacing: 1.5,
+    fontWeight: FontWeight.w800,
+    letterSpacing: 0,
     height: 1.0,
     color: KpColors.text,
   );

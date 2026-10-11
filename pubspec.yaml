@@ -51,3 +51,10 @@ flutter:
           weight: 600
         - asset: assets/fonts/Inter-Bold.ttf
           weight: 700
+    # Wordmark only (KINO / PLAYBACK). Latin subset, SIL OFL (assets/fonts/Unbounded-OFL.txt).
+    - family: Unbounded
+      fonts:
+        - asset: assets/fonts/Unbounded-Regular.ttf
+          weight: 400
+        - asset: assets/fonts/Unbounded-ExtraBold.ttf
+          weight: 800

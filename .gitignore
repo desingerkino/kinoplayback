@@ -35,3 +35,4 @@ ios/Runner/GeneratedPluginRegistrant.*
 *.mobileprovision
 *.p12
 dist/
+__pycache__/

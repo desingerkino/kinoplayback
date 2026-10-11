@@ -19,7 +19,6 @@ class LaunchScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final ff = formFactorOfContext(context);
-    final logo = const _Logo();
     final cards = _ModeCards(vertical: !ff.isLandscape && ff.isPhone);
     final footer = _Footer();
 
@@ -37,7 +36,7 @@ class LaunchScreen extends StatelessWidget {
                           fit: BoxFit.scaleDown,
                           child: Column(
                             mainAxisSize: MainAxisSize.min,
-                            children: [logo, const SizedBox(height: KpSpace.xl), footer],
+                            children: [const _Logo(width: 300), const SizedBox(height: KpSpace.xl), footer],
                           ),
                         ),
                       ),
@@ -57,7 +56,7 @@ class LaunchScreen extends StatelessWidget {
                         child: Column(
                           children: [
                             const Spacer(flex: 3),
-                            logo,
+                            _Logo(width: (box.maxWidth * 0.82).clamp(220.0, 400.0)),
                             const SizedBox(height: KpSpace.l),
                             const Spacer(flex: 2),
                             ConstrainedBox(constraints: const BoxConstraints(maxWidth: 560), child: cards),
@@ -77,21 +76,11 @@ class LaunchScreen extends StatelessWidget {
 }
 
 class _Logo extends StatelessWidget {
-  const _Logo();
+  const _Logo({this.width = 300});
+  final double width;
 
   @override
-  Widget build(BuildContext context) {
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        const KpLogo(height: 56, stacked: true),
-        const SizedBox(height: KpSpace.m),
-        Text('CAMERA · MONITOR · PLAYBACK',
-            textAlign: TextAlign.center,
-            style: KpText.label.copyWith(color: KpColors.textDim, fontSize: 11, letterSpacing: 2)),
-      ],
-    );
-  }
+  Widget build(BuildContext context) => KpHomeLockup(width: width);
 }
 
 class _ModeCards extends StatelessWidget {

@@ -31,4 +31,4 @@ flutter test --tags golden --update-goldens   # рендер экранов в t
 
 Папки `ios/` и `android/` создаются командой `flutter create`, после неё нужно запустить `python3 tool/patch_platforms.py`: скрипт прописывает права, Bonjour, ориентации и минимальные версии ОС. Подробнее об устройстве проекта, протоколе и ограничениях — в [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md), о совместимости VAXIS и Accsoon — в [docs/HARDWARE.md](docs/HARDWARE.md).
 
-Айдентика: `python3 tool/brand/generate.py` заново создаёт `assets/brand/*` (SVG, PNG, brand guide PDF), иконки iOS и Android и `lib/core/brand/kp_mark_geometry.dart`.
+Айдентика: `python3 tool/brand/generate.py` заново создаёт `assets/brand/*` (SVG, PNG, стартовый логотип, brand guide PDF), иконки iOS и Android и `lib/core/brand/kp_mark_geometry.dart`. Знак (K + Play + объектив) повторяет утверждённую иконку. Надписи KINO и PLAYBACK набраны шрифтом Unbounded (SIL OFL), интерфейс — шрифтом Inter.
