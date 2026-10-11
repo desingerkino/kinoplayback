@@ -49,15 +49,26 @@ class LaunchScreen extends StatelessWidget {
                     ),
                   ],
                 )
-              : Column(
-                  children: [
-                    const Spacer(flex: 3),
-                    logo,
-                    const Spacer(flex: 2),
-                    ConstrainedBox(constraints: const BoxConstraints(maxWidth: 560), child: cards),
-                    const Spacer(flex: 2),
-                    footer,
-                  ],
+              : LayoutBuilder(
+                  builder: (context, box) => SingleChildScrollView(
+                    child: ConstrainedBox(
+                      constraints: BoxConstraints(minHeight: box.maxHeight),
+                      child: IntrinsicHeight(
+                        child: Column(
+                          children: [
+                            const Spacer(flex: 3),
+                            logo,
+                            const SizedBox(height: KpSpace.l),
+                            const Spacer(flex: 2),
+                            ConstrainedBox(constraints: const BoxConstraints(maxWidth: 560), child: cards),
+                            const SizedBox(height: KpSpace.l),
+                            const Spacer(flex: 2),
+                            footer,
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
                 ),
         ),
       ),
