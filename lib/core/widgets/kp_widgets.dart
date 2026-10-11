@@ -188,6 +188,7 @@ class KpToolButton extends StatelessWidget {
     this.selected = false,
     this.enabled = true,
     this.compact = false,
+    this.width,
   });
 
   final IconData icon;
@@ -196,6 +197,7 @@ class KpToolButton extends StatelessWidget {
   final bool selected;
   final bool enabled;
   final bool compact;
+  final double? width;
 
   @override
   Widget build(BuildContext context) {
@@ -213,7 +215,7 @@ class KpToolButton extends StatelessWidget {
         borderRadius: BorderRadius.circular(KpRadius.s),
         child: AnimatedContainer(
           duration: const Duration(milliseconds: 150),
-          width: compact ? 48 : 56,
+          width: width ?? (compact ? 48 : 56),
           padding: EdgeInsets.symmetric(vertical: compact ? 6 : 8),
           decoration: BoxDecoration(
             color: selected ? KpColors.surface3 : Colors.transparent,

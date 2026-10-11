@@ -506,19 +506,19 @@ class _CameraScreenState extends State<CameraScreen> {
                 children: [
                   KpToolButton(
                     icon: Icons.grid_on,
-                    label: 'Монитор',
+                    label: 'Монитор', width: 72,
                     onTap: () => showMonitorTools(context, settings: AppScope.of(context).settings),
                   ),
                   KpToolButton(
                     icon: Icons.video_library_outlined,
-                    label: 'Дубли',
+                    label: 'Дубли', width: 72,
                     onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const TakesScreen())),
                   ),
-                  KpToolButton(icon: Icons.qr_code_2, label: 'Трансляция', onTap: () => showConnectSheet(context, c)),
-                  KpToolButton(icon: Icons.tune, label: 'Настройки', onTap: () => showCameraSettings(context, c)),
+                  KpToolButton(icon: Icons.qr_code_2, label: 'Трансляция', width: 72, onTap: () => showConnectSheet(context, c)),
+                  KpToolButton(icon: Icons.tune, label: 'Настройки', width: 72, onTap: () => showCameraSettings(context, c)),
                   KpToolButton(
                     icon: Icons.monitor_heart_outlined,
-                    label: 'Диагн.',
+                    label: 'Диагн.', width: 72,
                     onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => DiagnosticsScreen(camera: c))),
                   ),
                 ],

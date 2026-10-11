@@ -177,7 +177,7 @@ class _PlaybackScreenState extends State<PlaybackScreen> {
   Widget _nameAndLive(PlaybackController c) {
     return Row(mainAxisSize: MainAxisSize.min, children: [
       ConstrainedBox(
-        constraints: const BoxConstraints(maxWidth: 180),
+        constraints: BoxConstraints(maxWidth: MediaQuery.sizeOf(context).width < 500 ? 130 : 220),
         child: Text(
           c.remoteName.isEmpty ? (c.target.name ?? c.target.host) : c.remoteName,
           overflow: TextOverflow.ellipsis,
@@ -515,7 +515,7 @@ class _PlaybackScreenState extends State<PlaybackScreen> {
                   child: SingleChildScrollView(
                     child: Column(
                       children: [
-                        for (final w in _toolButtons(compact: !ff.isTablet && MediaQuery.sizeOf(context).height < 380))
+                        for (final w in _toolButtons(compact: !ff.isTablet && MediaQuery.sizeOf(context).height < 500))
                           Padding(padding: const EdgeInsets.symmetric(vertical: 2), child: w),
                       ],
                     ),
