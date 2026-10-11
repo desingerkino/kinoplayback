@@ -1,0 +1,4 @@
+Warning: Building for device with codesigning disabled. You will have to manually codesign before deploying to device.
+Building com.desingerkino.kinoplayback for device (ios-release)...
+patch_platforms:
+done, 0 change(s)
