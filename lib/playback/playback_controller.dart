@@ -464,7 +464,7 @@ class PlaybackController extends ChangeNotifier with WidgetsBindingObserver {
     try {
       final ByteBuffer buf = await v.captureFrame();
       final ts = DateTime.now();
-      final name = 'KP_${ts.year}${_2(ts.month)}${_2(ts.day)}_${_2(ts.hour)}${_2(ts.minute)}${_2(ts.second)}';
+      final name = 'KP_${ts.year}${_two(ts.month)}${_two(ts.day)}_${_two(ts.hour)}${_two(ts.minute)}${_two(ts.second)}';
       await Gal.putImageBytes(buf.asUint8List(), name: name);
       logI('play', 'кадр сохранён: $name');
       return null;
@@ -474,7 +474,7 @@ class PlaybackController extends ChangeNotifier with WidgetsBindingObserver {
     }
   }
 
-  static String _2(int v) => v.toString().padLeft(2, '0');
+  static String _two(int v) => v.toString().padLeft(2, '0');
 
   // ---------------------------------------------------------------- stats --
   Future<void> _pollStats() async {

@@ -269,7 +269,7 @@ String fmtRes(int? w, int? h) => (w == null || h == null) ? '—' : '$w×$h';
 
 String fmtFps(double? fps) {
   if (fps == null) return '—';
-  if ((fps - fps.roundToDouble()).abs() < 0.05) return fps.round().toString();
+  if ((fps - fps.roundToDouble()).abs() < 0.01) return fps.round().toString();
   return fps.toStringAsFixed(2);
 }
 

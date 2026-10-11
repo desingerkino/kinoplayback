@@ -197,6 +197,9 @@ class AppSettings extends ChangeNotifier {
   String takeNextClipName() {
     final name = '${reel}_C${nextClip.toString().padLeft(3, '0')}';
     nextClip++;
+    // Write the counter first: SharedPreferences updates its cache
+    // synchronously, so the next read can never hand out the same number.
+    _prefs.setInt('nextClip', nextClip);
     _save();
     notifyListeners();
     return name;

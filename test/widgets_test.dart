@@ -63,7 +63,7 @@ void main() {
       await t.pumpWidget(host(s, const LaunchScreen()));
       await t.pump();
       expect(find.text('CAMERA'), findsOneWidget);
-      expect(find.text('PLAYBACK'), findsOneWidget);
+      expect(find.text('PLAYBACK'), findsNWidgets(2)); // logo + mode card
       expect(t.takeException(), isNull);
     });
 

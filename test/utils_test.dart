@@ -132,7 +132,7 @@ void main() {
       expect(resLabel(3840, 2160), '4K');
       expect(resLabel(1080, 1920), '1080p');
       expect(fmtFps(29.97), '29.97');
-      expect(fmtFps(30.01), '30');
+      expect(fmtFps(30.004), '30');
       expect(fmtKbps(8000), '8.0 Mbps');
     });
   });

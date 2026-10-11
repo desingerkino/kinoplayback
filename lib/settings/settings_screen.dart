@@ -209,6 +209,7 @@ class _SectionBody extends StatelessWidget {
             ],
           _Sec.storage => [
               KpSection(
+                footer: 'Файлы лежат в папке приложения (на iOS видны в «Файлах») и копируются в медиатеку.',
                 children: [
                   KpRow(label: 'Свободно', value: formatBytes(freeBytesAt(app.takes.dir.path))),
                   KpRow(label: 'Дублей в приложении', value: '${app.takes.takes.length}'),
@@ -221,7 +222,6 @@ class _SectionBody extends StatelessWidget {
                   KpRow(label: 'Следующий дубль', value: 'C${s.nextClip.toString().padLeft(3, '0')}'),
                   KpRow(label: 'Сбросить нумерацию', onTap: () => s.update((x) => x.nextClip = 1)),
                 ],
-                footer: 'Файлы лежат в папке приложения (на iOS видны в «Файлах») и копируются в медиатеку.',
               ),
             ],
           _Sec.about => [

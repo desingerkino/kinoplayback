@@ -29,13 +29,21 @@ class LaunchScreen extends StatelessWidget {
                   children: [
                     Expanded(
                       flex: 4,
-                      child: Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [logo, const SizedBox(height: KpSpace.xl), footer],
+                      child: Center(
+                        child: FittedBox(
+                          fit: BoxFit.scaleDown,
+                          child: Column(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [logo, const SizedBox(height: KpSpace.xl), footer],
+                          ),
+                        ),
                       ),
                     ),
                     const SizedBox(width: KpSpace.xl),
-                    Expanded(flex: 6, child: Center(child: cards)),
+                    Expanded(
+                      flex: 6,
+                      child: Center(child: SingleChildScrollView(child: cards)),
+                    ),
                   ],
                 )
               : Column(
