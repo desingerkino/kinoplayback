@@ -42,7 +42,7 @@ class CameraAdvertiser {
     final service = BonsoirService(name: instance, type: kBonjourType, port: port, attributes: attributes);
     final b = BonsoirBroadcast(service: service);
     try {
-      await b.ready;
+      await b.initialize();
       await b.start();
       _broadcast = b;
       logI('mdns', 'advertising "$instance" $kBonjourType :$port');
@@ -84,7 +84,7 @@ class CameraBrowser extends ChangeNotifier {
     try {
       final d = BonsoirDiscovery(type: kBonjourType);
       _discovery = d;
-      await d.ready;
+      await d.initialize();
       _sub = d.eventStream?.listen(_onEvent);
       await d.start();
       logI('mdns', 'browsing $kBonjourType');
@@ -97,40 +97,51 @@ class CameraBrowser extends ChangeNotifier {
   }
 
   void _onEvent(BonsoirDiscoveryEvent event) {
-    final s = event.service;
-    switch (event.type) {
-      case BonsoirDiscoveryEventType.discoveryServiceFound:
-        if (s != null && _discovery != null) {
-          s.resolve(_discovery!.serviceResolver);
-        }
-      case BonsoirDiscoveryEventType.discoveryServiceResolved:
-        if (s is ResolvedBonsoirService) {
-          // Prefer the IPv4 address the camera announced in TXT (Android's
-          // resolver cannot resolve *.local names); fall back to host.
-          final ip = s.attributes['ip'];
-          final host = (ip != null && ip.isNotEmpty) ? ip : (s.host ?? '');
-          if (host.isEmpty) return;
-          final cam = DiscoveredCamera(
-            serviceName: s.name,
-            host: host.endsWith('.') ? host.substring(0, host.length - 1) : host,
-            port: s.port,
-            attributes: s.attributes,
-            lastSeen: DateTime.now(),
-          );
-          _found[s.name] = cam;
-          logI('mdns', 'found ${cam.displayName} @ ${cam.key}');
-          notifyListeners();
-        }
-      case BonsoirDiscoveryEventType.discoveryServiceResolveFailed:
-        logW('mdns', 'resolve failed: ${s?.name}');
-      case BonsoirDiscoveryEventType.discoveryServiceLost:
-        if (s != null && _found.remove(s.name) != null) {
-          logI('mdns', 'lost ${s.name}');
+    switch (event) {
+      case BonsoirDiscoveryServiceFoundEvent():
+        final d = _discovery;
+        if (d != null) unawaited(event.service.resolve(d.serviceResolver));
+      case BonsoirDiscoveryServiceResolvedEvent():
+        _resolved(event.service);
+      case BonsoirDiscoveryServiceUpdatedEvent():
+        _resolved(event.service);
+      case BonsoirDiscoveryServiceResolveFailedEvent():
+        logW('mdns', 'resolve failed');
+      case BonsoirDiscoveryServiceLostEvent():
+        if (_found.remove(event.service.name) != null) {
+          logI('mdns', 'lost ${event.service.name}');
           notifyListeners();
         }
       default:
         break;
     }
+  }
+
+  void _resolved(BonsoirService s) {
+    // Prefer the IPv4 the camera announced in TXT, then any resolved IPv4,
+    // then the mDNS hostname (Android's resolver can't resolve *.local).
+    final announced = s.attributes['ip'];
+    final v4 = s.hostAddresses.where((a) => RegExp(r'^\d+\.\d+\.\d+\.\d+$').hasMatch(a)).toList();
+    String host;
+    if (announced != null && announced.isNotEmpty) {
+      host = announced;
+    } else if (v4.isNotEmpty) {
+      host = v4.first;
+    } else {
+      host = s.hostname ?? '';
+    }
+    if (host.isEmpty) return;
+    if (host.endsWith('.')) host = host.substring(0, host.length - 1);
+    final cam = DiscoveredCamera(
+      serviceName: s.name,
+      host: host,
+      port: s.port,
+      attributes: s.attributes,
+      lastSeen: DateTime.now(),
+    );
+    _found[s.name] = cam;
+    logI('mdns', 'found ${cam.displayName} @ ${cam.key}');
+    notifyListeners();
   }
 
   Future<void> stop() async {
