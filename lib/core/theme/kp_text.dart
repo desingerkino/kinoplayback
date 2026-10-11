@@ -1,5 +1,3 @@
-import 'dart:ui' show FontFeature;
-
 import 'package:flutter/painting.dart';
 
 import 'kp_colors.dart';

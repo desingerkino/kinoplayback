@@ -1,5 +1,70 @@
-import 'package:flutter/material.dart';
+import 'dart:async';
+import 'dart:ui';
 
-void main() {
-  runApp(const MaterialApp(home: Scaffold(body: Center(child: Text('KINO PLAYBACK')))));
+import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+
+import 'app/app_scope.dart';
+import 'app/launch_screen.dart';
+import 'core/device_identity.dart';
+import 'core/event_log.dart';
+import 'core/theme/kp_theme.dart';
+import 'protocol/messages.dart';
+import 'recording/takes.dart';
+import 'settings/app_settings.dart';
+
+Future<void> main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  FlutterError.onError = (details) {
+    FlutterError.presentError(details);
+    logE('flutter', details.exceptionAsString());
+  };
+  PlatformDispatcher.instance.onError = (error, stack) {
+    logE('dart', '$error');
+    return true;
+  };
+
+  // All orientations: CAMERA and PLAYBACK are designed landscape-first.
+  await SystemChrome.setPreferredOrientations(const []);
+  SystemChrome.setSystemUIOverlayStyle(const SystemUiOverlayStyle(
+    statusBarColor: Colors.transparent,
+    statusBarIconBrightness: Brightness.light,
+    statusBarBrightness: Brightness.dark,
+    systemNavigationBarColor: Color(0xFF07080A),
+  ));
+
+  final settings = await AppSettings.load();
+  final takes = await TakesRepository.open();
+  final view = PlatformDispatcher.instance.views.first;
+  final logical = view.physicalSize / view.devicePixelRatio;
+  final identity = await DeviceIdentity.load(isTablet: logical.shortestSide >= 600);
+
+  if (settings.clientId.isEmpty) settings.update((s) => s.clientId = newId('dev'));
+  if (settings.deviceName.isEmpty) {
+    settings.update((s) => s.deviceName = identity.model == '—' ? 'KINO ${identity.platform}' : identity.model);
+  }
+  logI('app', 'KINO PLAYBACK ${identity.appVersion} · ${identity.platform} ${identity.osVersion} · ${identity.model}');
+
+  runApp(KinoPlaybackApp(services: AppServices(settings: settings, takes: takes, identity: identity)));
+}
+
+class KinoPlaybackApp extends StatelessWidget {
+  const KinoPlaybackApp({super.key, required this.services});
+
+  final AppServices services;
+
+  @override
+  Widget build(BuildContext context) {
+    return AppScope(
+      services: services,
+      child: MaterialApp(
+        title: 'KINO PLAYBACK',
+        debugShowCheckedModeBanner: false,
+        theme: buildKpTheme(),
+        darkTheme: buildKpTheme(),
+        themeMode: ThemeMode.dark,
+        home: const LaunchScreen(),
+      ),
+    );
+  }
 }
