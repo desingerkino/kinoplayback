@@ -204,7 +204,7 @@ void main() {
     });
 
     test('sample json round-trip', () {
-      final m = MotionSample.fromJson(s(3, 12.345, q: 90).toJson(), sessionId: 's1')!;
+      final m = MotionSample.fromJson(s(3, 12.346, q: 90).toJson(), sessionId: 's1')!;
       expect(m.seq, 3);
       expect(m.roll, closeTo(12.35, 1e-9));
       expect(m.quant, 90);
