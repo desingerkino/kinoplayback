@@ -40,6 +40,11 @@ Future<void> _loadFonts() async {
     inter.addFont(rootBundle.load('assets/fonts/Inter-$w.ttf'));
   }
   await inter.load();
+  final wordmark = FontLoader('Unbounded');
+  for (final w in ['Regular', 'ExtraBold']) {
+    wordmark.addFont(rootBundle.load('assets/fonts/Unbounded-$w.ttf'));
+  }
+  await wordmark.load();
   final root = Platform.environment['FLUTTER_ROOT'];
   if (root != null) {
     final f = File('$root/bin/cache/artifacts/material_fonts/MaterialIcons-Regular.otf');
