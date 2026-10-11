@@ -53,9 +53,9 @@ jobs:
       - name: Screen renders (goldens) for layout review
         continue-on-error: true
         run: |
-          set -o pipefail
-          flutter test --reporter expanded --tags golden --update-goldens 2>&1 | tee logs/goldens.log
+          flutter test --reporter expanded --tags golden --update-goldens 2>&1 | tee logs/goldens.log || true
           mkdir -p logs/goldens && cp test/goldens/*.png logs/goldens/ || true
+          grep -q "All tests passed" logs/goldens.log
       - name: Commit generated platform folders
         if: steps.bootstrap.outputs.created == 'true' && github.event_name == 'push' && github.ref == 'refs/heads/main'
         run: |
@@ -112,6 +112,10 @@ jobs:
           mkdir -p logs
           set -o pipefail
           flutter build apk --release --build-number=${{ github.run_number }} 2>&1 | tee logs/build_apk.log
+      - name: Build arm64 APK (smaller, for modern phones)
+        run: |
+          set -o pipefail
+          flutter build apk --release --split-per-abi --target-platform android-arm64 --build-number=${{ github.run_number }} 2>&1 | tee logs/build_apk_arm64.log
       - name: Build AAB
         run: |
           set -o pipefail
@@ -122,7 +126,8 @@ jobs:
           ls -la "$APK"
           unzip -l "$APK" | grep -E "AndroidManifest.xml|classes.dex|lib/arm64-v8a/libflutter.so"
           mkdir -p dist
-          cp "$APK" dist/KinoPlayback-${{ github.run_number }}.apk
+          cp "$APK" dist/KinoPlayback-${{ github.run_number }}-universal.apk
+          cp build/app/outputs/flutter-apk/app-arm64-v8a-release.apk dist/KinoPlayback-${{ github.run_number }}-arm64.apk
           cp build/app/outputs/bundle/release/app-release.aab dist/KinoPlayback-${{ github.run_number }}.aab
       - uses: actions/upload-artifact@v4
         with:
@@ -171,8 +176,14 @@ jobs:
           set -o pipefail
           flutter build ios --config-only --release --no-codesign 2>&1 | tee logs/ios_config.log
           python3 tool/patch_platforms.py 2>&1 | tee -a logs/ios_config.log
-          cp ios/Podfile logs/Podfile.txt || true
-          (cd ios && pod install --repo-update) 2>&1 | tee logs/pod_install.log
+          # All plugins may resolve through Swift Package Manager; CocoaPods
+          # is only needed when Flutter generated a Podfile.
+          if [ -f ios/Podfile ]; then
+            cp ios/Podfile logs/Podfile.txt
+            (cd ios && pod install --repo-update) 2>&1 | tee logs/pod_install.log
+          else
+            echo "no Podfile: plugins via Swift Package Manager" | tee logs/pod_install.log
+          fi
       - name: Build iOS app (no codesign)
         run: |
           set -o pipefail

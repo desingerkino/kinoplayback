@@ -69,7 +69,9 @@ class PlaybackController extends ChangeNotifier with WidgetsBindingObserver {
 
   MediaStream? _remoteStream;
   MediaStreamTrack? remoteVideo;
+  MediaStreamTrack? _remoteAudio;
   bool hasRemoteAudio = false;
+  bool monitorMuted = false;
 
   late final CommandTracker tracker = CommandTracker(
     send: (m) {
@@ -248,6 +250,10 @@ class PlaybackController extends ChangeNotifier with WidgetsBindingObserver {
         }
       } else if (e.track.kind == 'audio') {
         hasRemoteAudio = true;
+        _remoteAudio = e.track;
+        e.track.enabled = !monitorMuted;
+        // Monitor audio goes to the loudspeaker, not the earpiece.
+        unawaited(Helper.setSpeakerphoneOn(true).catchError((Object _) {}));
       }
       _notify();
     };
@@ -390,6 +396,7 @@ class PlaybackController extends ChangeNotifier with WidgetsBindingObserver {
     _linkSub = null;
     remoteVideo = null;
     _remoteStream = null;
+    _remoteAudio = null;
     hasRemoteAudio = false;
     stats = null;
     _counters = null;
@@ -457,6 +464,15 @@ class PlaybackController extends ChangeNotifier with WidgetsBindingObserver {
     }
   }
 
+  /// Mutes / unmutes the received audio on this device only (the CAMERA
+  /// keeps recording sound into the original).
+  void toggleMonitorAudio() {
+    monitorMuted = !monitorMuted;
+    _remoteAudio?.enabled = !monitorMuted;
+    logI('play', 'звук монитора: ${monitorMuted ? 'выкл' : 'вкл'}');
+    _notify();
+  }
+
   /// Saves the current received frame (as decoded on this device) to Photos.
   Future<String?> snapshot() async {
     final v = remoteVideo;
@@ -511,6 +527,15 @@ class PlaybackController extends ChangeNotifier with WidgetsBindingObserver {
       await WakelockPlus.disable();
     } catch (_) {}
     _notify();
+  }
+
+  /// Stops timers immediately, then disconnects (finalising any monitor
+  /// recording) and disposes when that has completed.
+  void closeAndDispose() {
+    _retry?.cancel();
+    _statsTimer?.cancel();
+    _watchdog?.cancel();
+    unawaited(disconnect().whenComplete(dispose));
   }
 
   @override

@@ -1,8 +1,10 @@
 import 'dart:async';
+import 'dart:io';
 import 'dart:ui';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_webrtc/flutter_webrtc.dart';
 
 import 'app/app_scope.dart';
 import 'app/launch_screen.dart';
@@ -32,6 +34,17 @@ Future<void> main() async {
     statusBarBrightness: Brightness.dark,
     systemNavigationBarColor: Color(0xFF07080A),
   ));
+
+  // CAMERA records a scene, not a phone call: on iOS bypass the voice
+  // processing unit (echo cancellation / noise suppression / AGC) so the
+  // microphone sounds natural. Must run before any other WebRTC call.
+  if (Platform.isIOS) {
+    try {
+      await WebRTC.initialize(options: {'bypassVoiceProcessing': true});
+    } catch (e) {
+      logW('app', 'WebRTC init options: $e');
+    }
+  }
 
   final settings = await AppSettings.load();
   final takes = await TakesRepository.open();

@@ -49,7 +49,7 @@ class _PlaybackScreenState extends State<PlaybackScreen> {
     SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
     _analyzer.dispose();
     final ctl = _ctl;
-    if (ctl != null) unawaited(ctl.disconnect().whenComplete(ctl.dispose));
+    ctl?.closeAndDispose();
     super.dispose();
   }
 
@@ -210,6 +210,16 @@ class _PlaybackScreenState extends State<PlaybackScreen> {
   }
 
   List<Widget> _trailingItems(PlaybackController c) => [
+        if (c.hasRemoteAudio)
+          IconButton(
+            tooltip: c.monitorMuted ? 'Включить звук монитора' : 'Выключить звук монитора',
+            visualDensity: VisualDensity.compact,
+            icon: Icon(c.monitorMuted ? Icons.volume_off : Icons.volume_up,
+                size: 20, color: c.monitorMuted ? KpColors.warn : KpColors.text),
+            onPressed: c.toggleMonitorAudio,
+          ),
+        if (c.hasRemoteAudio && !c.monitorMuted)
+          KpAudioMeter(level: c.stats?.audioLevel, height: 18, width: 3),
         KpSignalBars(level: c.isLive ? c.stats?.quality : null),
         StripItem(
           batteryText(c.camState?.batteryLevel),
