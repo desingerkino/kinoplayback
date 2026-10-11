@@ -202,6 +202,14 @@ class KpHomeLockup extends StatelessWidget {
     final markW = w * 0.53;
     final frameH = w * 0.05 + markW * KpMark.aspect + w * 0.03;
     final textW = w * 0.84;
+    // Font size at which KINO spans textW (no FittedBox: keeps intrinsics exact).
+    final probe = TextPainter(
+      text: TextSpan(text: 'KINO', style: KpText.logo.copyWith(fontSize: 100, height: 1)),
+      textDirection: TextDirection.ltr,
+      textScaler: TextScaler.noScaling,
+    )..layout();
+    final kinoSize = 100 * textW / probe.width;
+    probe.dispose();
     return Semantics(
       label: 'KINO PLAYBACK — $tagline',
       container: true,
@@ -224,13 +232,7 @@ class KpHomeLockup extends StatelessWidget {
             ),
           ),
           SizedBox(height: w * 0.045),
-          SizedBox(
-            width: textW,
-            child: FittedBox(
-              fit: BoxFit.fitWidth,
-              child: Text('KINO', textScaler: TextScaler.noScaling, style: KpText.logo.copyWith(height: 1)),
-            ),
-          ),
+          Text('KINO', textScaler: TextScaler.noScaling, style: KpText.logo.copyWith(fontSize: kinoSize, height: 1)),
           SizedBox(height: w * 0.035),
           KpSpreadText(
             'PLAYBACK',
