@@ -1,0 +1,46 @@
+00:00 +0: loading /home/runner/work/kinoplayback/kinoplayback/test/protocol_test.dart
+00:00 +0: /home/runner/work/kinoplayback/kinoplayback/test/screens_golden_test.dart: (setUpAll)
+00:00 +0: /home/runner/work/kinoplayback/kinoplayback/test/screens_golden_test.dart: launch phone_portrait
+00:00 +1: /home/runner/work/kinoplayback/kinoplayback/test/screens_golden_test.dart: camera phone_portrait
+[cam] Камера выбрала 3840×2160 · 30 к/с вместо 1920×1080 · 30
+[cam] камера открыта: 3840x2160@30 back audio=on
+[sig] listening on :47800
+00:01 +2: /home/runner/work/kinoplayback/kinoplayback/test/screens_golden_test.dart: playback phone_portrait
+00:01 +3: /home/runner/work/kinoplayback/kinoplayback/test/screens_golden_test.dart: settings phone_portrait
+00:01 +4: /home/runner/work/kinoplayback/kinoplayback/test/screens_golden_test.dart: transmitters phone_portrait
+00:02 +5: /home/runner/work/kinoplayback/kinoplayback/test/screens_golden_test.dart: launch phone_landscape
+00:02 +6: /home/runner/work/kinoplayback/kinoplayback/test/screens_golden_test.dart: camera phone_landscape
+[cam] Камера выбрала 3840×2160 · 30 к/с вместо 1920×1080 · 30
+[cam] камера открыта: 3840x2160@30 back audio=on
+[sig] listening on :47800
+00:02 +7: /home/runner/work/kinoplayback/kinoplayback/test/screens_golden_test.dart: playback phone_landscape
+00:02 +8: /home/runner/work/kinoplayback/kinoplayback/test/screens_golden_test.dart: settings phone_landscape
+00:02 +9: /home/runner/work/kinoplayback/kinoplayback/test/screens_golden_test.dart: transmitters phone_landscape
+00:02 +10: /home/runner/work/kinoplayback/kinoplayback/test/screens_golden_test.dart: launch small_landscape
+00:03 +11: /home/runner/work/kinoplayback/kinoplayback/test/screens_golden_test.dart: camera small_landscape
+[cam] Камера выбрала 3840×2160 · 30 к/с вместо 1920×1080 · 30
+[cam] камера открыта: 3840x2160@30 back audio=on
+[sig] listening on :47800
+00:03 +12: /home/runner/work/kinoplayback/kinoplayback/test/screens_golden_test.dart: playback small_landscape
+00:03 +13: /home/runner/work/kinoplayback/kinoplayback/test/screens_golden_test.dart: settings small_landscape
+00:03 +14: /home/runner/work/kinoplayback/kinoplayback/test/screens_golden_test.dart: transmitters small_landscape
+00:03 +15: /home/runner/work/kinoplayback/kinoplayback/test/screens_golden_test.dart: launch tablet_landscape
+00:03 +16: /home/runner/work/kinoplayback/kinoplayback/test/screens_golden_test.dart: camera tablet_landscape
+[cam] Камера выбрала 3840×2160 · 30 к/с вместо 1920×1080 · 30
+[cam] камера открыта: 3840x2160@30 back audio=on
+[sig] listening on :47800
+00:03 +17: /home/runner/work/kinoplayback/kinoplayback/test/screens_golden_test.dart: playback tablet_landscape
+00:04 +18: /home/runner/work/kinoplayback/kinoplayback/test/screens_golden_test.dart: settings tablet_landscape
+00:04 +19: /home/runner/work/kinoplayback/kinoplayback/test/screens_golden_test.dart: transmitters tablet_landscape
+00:04 +20: /home/runner/work/kinoplayback/kinoplayback/test/screens_golden_test.dart: launch tablet_portrait
+00:04 +21: /home/runner/work/kinoplayback/kinoplayback/test/screens_golden_test.dart: camera tablet_portrait
+[cam] Камера выбрала 3840×2160 · 30 к/с вместо 1920×1080 · 30
+[cam] камера открыта: 3840x2160@30 back audio=on
+[sig] listening on :47800
+00:04 +22: /home/runner/work/kinoplayback/kinoplayback/test/screens_golden_test.dart: playback tablet_portrait
+00:05 +23: /home/runner/work/kinoplayback/kinoplayback/test/screens_golden_test.dart: settings tablet_portrait
+00:05 +24: /home/runner/work/kinoplayback/kinoplayback/test/screens_golden_test.dart: transmitters tablet_portrait
+00:05 +25: /home/runner/work/kinoplayback/kinoplayback/test/screens_golden_test.dart: transmitter card
+00:05 +26: /home/runner/work/kinoplayback/kinoplayback/test/screens_golden_test.dart: schemes
+00:05 +27: /home/runner/work/kinoplayback/kinoplayback/test/screens_golden_test.dart: (tearDownAll)
+00:05 +27: All tests passed!

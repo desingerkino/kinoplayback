@@ -1,0 +1,110 @@
+00:00 +0: loading /home/runner/work/kinoplayback/kinoplayback/test/protocol_test.dart
+00:00 +0: /home/runner/work/kinoplayback/kinoplayback/test/protocol_test.dart: KpMessage envelope round-trips all fields
+00:00 +1: /home/runner/work/kinoplayback/kinoplayback/test/protocol_test.dart: KpMessage envelope ids are unique and prefixed
+00:00 +2: /home/runner/work/kinoplayback/kinoplayback/test/protocol_test.dart: KpMessage envelope wire format uses the documented short keys
+00:00 +3: /home/runner/work/kinoplayback/kinoplayback/test/protocol_test.dart: KpMessage envelope rejects malformed: not json
+00:00 +4: /home/runner/work/kinoplayback/kinoplayback/test/protocol_test.dart: KpMessage envelope rejects malformed: []
+00:00 +5: /home/runner/work/kinoplayback/kinoplayback/test/protocol_test.dart: KpMessage envelope rejects malformed: {"t":"x","id":"a","ts":1,"p":{}}
+00:00 +6: /home/runner/work/kinoplayback/kinoplayback/test/protocol_test.dart: KpMessage envelope rejects malformed: {"v":1,"id":"a","ts":1,"p":{}}
+00:00 +7: /home/runner/work/kinoplayback/kinoplayback/test/protocol_test.dart: KpMessage envelope rejects malformed: {"v":1,"t":"x","ts":1,"p":{}}
+00:00 +8: /home/runner/work/kinoplayback/kinoplayback/test/protocol_test.dart: KpMessage envelope rejects malformed: {"v":1,"t":"x","id":"a","p":{}}
+00:00 +9: /home/runner/work/kinoplayback/kinoplayback/test/protocol_test.dart: KpMessage envelope rejects malformed: {"v":1,"t":"x","id":"a","ts":1,"p":[]}
+00:00 +10: /home/runner/work/kinoplayback/kinoplayback/test/protocol_test.dart: KpMessage envelope rejects malformed: {"v":99,"t":"x","id":"a","ts":1,"p":{}}
+00:00 +11: /home/runner/work/kinoplayback/kinoplayback/test/protocol_test.dart: KpMessage envelope rejects malformed: {"v":1,"t":"x","id":"a","ts":1,"sid":5,"p":{}}
+00:00 +12: /home/runner/work/kinoplayback/kinoplayback/test/protocol_test.dart: KpMessage envelope missing payload defaults to empty object
+00:00 +13: /home/runner/work/kinoplayback/kinoplayback/test/protocol_test.dart: CmdStage wire mapping final stages
+00:00 +14: /home/runner/work/kinoplayback/kinoplayback/test/protocol_test.dart: CmdStage wire mapping remote stages round-trip
+00:00 +15: /home/runner/work/kinoplayback/kinoplayback/test/protocol_test.dart: CameraStateSnapshot round-trips
+00:00 +16: /home/runner/work/kinoplayback/kinoplayback/test/protocol_test.dart: CameraStateSnapshot tolerates missing/foreign fields
+00:03 +17: /home/runner/work/kinoplayback/kinoplayback/test/widgets_test.dart: launch screen lays out without overflow: small phone portrait
+00:04 +18: /home/runner/work/kinoplayback/kinoplayback/test/widgets_test.dart: settings screen lays out: small phone portrait
+00:04 +19: /home/runner/work/kinoplayback/kinoplayback/test/widgets_test.dart: settings screen lays out: small phone portrait
+00:04 +20: /home/runner/work/kinoplayback/kinoplayback/test/widgets_test.dart: settings screen lays out: small phone portrait
+00:04 +21: /home/runner/work/kinoplayback/kinoplayback/test/widgets_test.dart: settings screen lays out: small phone portrait
+00:04 +22: /home/runner/work/kinoplayback/kinoplayback/test/widgets_test.dart: settings screen lays out: small phone portrait
+00:04 +23: /home/runner/work/kinoplayback/kinoplayback/test/widgets_test.dart: settings screen lays out: small phone portrait
+00:04 +24: /home/runner/work/kinoplayback/kinoplayback/test/widgets_test.dart: settings screen lays out: small phone portrait
+00:04 +25: /home/runner/work/kinoplayback/kinoplayback/test/widgets_test.dart: settings screen lays out: small phone portrait
+00:04 +26: /home/runner/work/kinoplayback/kinoplayback/test/widgets_test.dart: settings screen lays out: small phone portrait
+00:04 +27: /home/runner/work/kinoplayback/kinoplayback/test/widgets_test.dart: settings screen lays out: small phone portrait
+00:04 +28: /home/runner/work/kinoplayback/kinoplayback/test/widgets_test.dart: settings screen lays out: small phone portrait
+00:04 +29: /home/runner/work/kinoplayback/kinoplayback/test/widgets_test.dart: settings screen lays out: small phone portrait
+00:04 +30: /home/runner/work/kinoplayback/kinoplayback/test/widgets_test.dart: settings screen lays out: small phone portrait
+00:04 +31: /home/runner/work/kinoplayback/kinoplayback/test/widgets_test.dart: settings screen lays out: small phone portrait
+00:04 +32: /home/runner/work/kinoplayback/kinoplayback/test/widgets_test.dart: settings screen lays out: small phone portrait
+00:04 +33: /home/runner/work/kinoplayback/kinoplayback/test/widgets_test.dart: settings screen lays out: small phone portrait
+00:04 +34: /home/runner/work/kinoplayback/kinoplayback/test/widgets_test.dart: settings screen lays out: small phone portrait
+00:04 +35: /home/runner/work/kinoplayback/kinoplayback/test/widgets_test.dart: settings screen lays out: small phone portrait
+00:04 +36: /home/runner/work/kinoplayback/kinoplayback/test/widgets_test.dart: settings screen lays out: small phone portrait
+00:04 +37: /home/runner/work/kinoplayback/kinoplayback/test/orientation_test.dart: CameraOrientationSync reset on new session clears state
+00:04 +38: /home/runner/work/kinoplayback/kinoplayback/test/widgets_test.dart: takes screen (empty) lays out: small phone portrait
+00:04 +39: /home/runner/work/kinoplayback/kinoplayback/test/widgets_test.dart: takes screen (empty) lays out: small phone portrait
+00:04 +40: /home/runner/work/kinoplayback/kinoplayback/test/widgets_test.dart: takes screen (empty) lays out: small phone portrait
+00:04 +41: /home/runner/work/kinoplayback/kinoplayback/test/widgets_test.dart: takes screen (empty) lays out: small phone portrait
+00:04 +42: /home/runner/work/kinoplayback/kinoplayback/test/widgets_test.dart: launch screen lays out without overflow: phone portrait
+00:04 +43: /home/runner/work/kinoplayback/kinoplayback/test/widgets_test.dart: settings screen lays out: phone portrait
+00:04 +44: /home/runner/work/kinoplayback/kinoplayback/test/widgets_test.dart: takes screen (empty) lays out: phone portrait
+00:04 +45: /home/runner/work/kinoplayback/kinoplayback/test/widgets_test.dart: launch screen lays out without overflow: phone landscape
+00:04 +46: /home/runner/work/kinoplayback/kinoplayback/test/widgets_test.dart: settings screen lays out: phone landscape
+00:04 +47: /home/runner/work/kinoplayback/kinoplayback/test/widgets_test.dart: takes screen (empty) lays out: phone landscape
+00:04 +48: /home/runner/work/kinoplayback/kinoplayback/test/widgets_test.dart: launch screen lays out without overflow: small phone landscape
+00:04 +49: /home/runner/work/kinoplayback/kinoplayback/test/widgets_test.dart: settings screen lays out: small phone landscape
+00:05 +50: /home/runner/work/kinoplayback/kinoplayback/test/widgets_test.dart: takes screen (empty) lays out: small phone landscape
+00:05 +51: /home/runner/work/kinoplayback/kinoplayback/test/widgets_test.dart: launch screen lays out without overflow: tablet portrait
+00:05 +52: /home/runner/work/kinoplayback/kinoplayback/test/widgets_test.dart: settings screen lays out: tablet portrait
+00:05 +53: /home/runner/work/kinoplayback/kinoplayback/test/widgets_test.dart: takes screen (empty) lays out: tablet portrait
+00:05 +54: /home/runner/work/kinoplayback/kinoplayback/test/widgets_test.dart: launch screen lays out without overflow: tablet landscape
+00:05 +55: /home/runner/work/kinoplayback/kinoplayback/test/widgets_test.dart: settings screen lays out: tablet landscape
+00:05 +56: /home/runner/work/kinoplayback/kinoplayback/test/widgets_test.dart: settings screen lays out: tablet landscape
+00:05 +57: /home/runner/work/kinoplayback/kinoplayback/test/widgets_test.dart: settings screen lays out: tablet landscape
+00:05 +58: /home/runner/work/kinoplayback/kinoplayback/test/widgets_test.dart: settings screen lays out: tablet landscape
+00:05 +59: /home/runner/work/kinoplayback/kinoplayback/test/widgets_test.dart: settings screen lays out: tablet landscape
+00:05 +60: /home/runner/work/kinoplayback/kinoplayback/test/widgets_test.dart: settings screen lays out: tablet landscape
+00:05 +61: /home/runner/work/kinoplayback/kinoplayback/test/widgets_test.dart: settings screen lays out: tablet landscape
+00:05 +62: /home/runner/work/kinoplayback/kinoplayback/test/widgets_test.dart: settings screen lays out: tablet landscape
+00:05 +63: /home/runner/work/kinoplayback/kinoplayback/test/widgets_test.dart: settings screen lays out: tablet landscape
+00:05 +64: /home/runner/work/kinoplayback/kinoplayback/test/widgets_test.dart: settings screen lays out: tablet landscape
+00:05 +65: /home/runner/work/kinoplayback/kinoplayback/test/widgets_test.dart: settings screen lays out: tablet landscape
+00:05 +66: /home/runner/work/kinoplayback/kinoplayback/test/widgets_test.dart: settings screen lays out: tablet landscape
+00:05 +67: /home/runner/work/kinoplayback/kinoplayback/test/widgets_test.dart: settings screen lays out: tablet landscape
+00:05 +68: /home/runner/work/kinoplayback/kinoplayback/test/widgets_test.dart: settings screen lays out: tablet landscape
+00:05 +69: /home/runner/work/kinoplayback/kinoplayback/test/widgets_test.dart: settings screen lays out: tablet landscape
+00:05 +70: /home/runner/work/kinoplayback/kinoplayback/test/widgets_test.dart: settings screen lays out: tablet landscape
+00:05 +71: /home/runner/work/kinoplayback/kinoplayback/test/widgets_test.dart: settings screen lays out: tablet landscape
+00:05 +72: /home/runner/work/kinoplayback/kinoplayback/test/utils_test.dart: frame analysis luma and histogram
+00:05 +73: /home/runner/work/kinoplayback/kinoplayback/test/widgets_test.dart: takes screen (empty) lays out: tablet landscape
+00:05 +74: /home/runner/work/kinoplayback/kinoplayback/test/widgets_test.dart: takes screen (empty) lays out: tablet landscape
+00:05 +75: /home/runner/work/kinoplayback/kinoplayback/test/widgets_test.dart: takes screen (empty) lays out: tablet landscape
+00:05 +76: /home/runner/work/kinoplayback/kinoplayback/test/widgets_test.dart: takes screen (empty) lays out: tablet landscape
+00:05 +77: /home/runner/work/kinoplayback/kinoplayback/test/widgets_test.dart: REC button renders every state
+00:05 +78: /home/runner/work/kinoplayback/kinoplayback/test/widgets_test.dart: REC button: pressing calls back, disabled does not
+00:05 +79: /home/runner/work/kinoplayback/kinoplayback/test/widgets_test.dart: timecode format
+00:05 +80: /home/runner/work/kinoplayback/kinoplayback/test/widgets_test.dart: status strip clips instead of overflowing on a narrow width
+00:05 +81: /home/runner/work/kinoplayback/kinoplayback/test/widgets_test.dart: segmented control switches value
+00:05 +82: /home/runner/work/kinoplayback/kinoplayback/test/widgets_test.dart: clip names increment and persist
+00:05 +83: /home/runner/work/kinoplayback/kinoplayback/test/remote_commands_test.dart: happy path: sent → received → accepted → done, executes once
+00:06 +84: /home/runner/work/kinoplayback/kinoplayback/test/remote_commands_test.dart: remote control disabled → rejected, nothing executed
+00:06 +85: /home/runner/work/kinoplayback/kinoplayback/test/remote_commands_test.dart: executor failure is reported as failed with code
+00:06 +86: /home/runner/work/kinoplayback/kinoplayback/test/remote_commands_test.dart: double press while in flight does not send a second command
+00:06 +87: /home/runner/work/kinoplayback/kinoplayback/test/remote_commands_test.dart: different command while one is in flight is refused locally
+00:06 +88: /home/runner/work/kinoplayback/kinoplayback/test/remote_commands_test.dart: lost reply → retry with same id → CAMERA replays, executes once
+00:06 +89: /home/runner/work/kinoplayback/kinoplayback/test/remote_commands_test.dart: no answer at all → retries then timedOut
+00:06 +90: /home/runner/work/kinoplayback/kinoplayback/test/remote_commands_test.dart: accepted but never finished → final timeout
+00:06 +91: /home/runner/work/kinoplayback/kinoplayback/test/remote_commands_test.dart: channel closed → failed immediately
+00:06 +92: /home/runner/work/kinoplayback/kinoplayback/test/remote_commands_test.dart: channelLost fails in-flight commands
+00:06 +93: /home/runner/work/kinoplayback/kinoplayback/test/remote_commands_test.dart: late/backwards status is ignored
+00:06 +94: /home/runner/work/kinoplayback/kinoplayback/test/remote_commands_test.dart: handler rejects unknown command types
+00:06 +95: /home/runner/work/kinoplayback/kinoplayback/test/remote_commands_test.dart: camera-control commands use their own permission
+00:06 +96: /home/runner/work/kinoplayback/kinoplayback/test/remote_commands_test.dart: payload travels with the command
+00:06 +97: /home/runner/work/kinoplayback/kinoplayback/test/catalog_test.dart: required models are present, ATOM A5 is not
+00:06 +98: /home/runner/work/kinoplayback/kinoplayback/test/catalog_test.dart: nothing is claimed as tested without a physical test
+00:06 +99: /home/runner/work/kinoplayback/kinoplayback/test/catalog_test.dart: every model has a source and all three scenarios
+00:06 +100: /home/runner/work/kinoplayback/kinoplayback/test/catalog_test.dart: SeeMo Pro is a capture adapter, not a transmitter
+00:06 +101: /home/runner/work/kinoplayback/kinoplayback/test/catalog_test.dart: camera caps travel in the state snapshot
+00:06 +102: /home/runner/work/kinoplayback/kinoplayback/test/mp4_inspector_test.dart: reads real dimensions, fps, duration and codecs from moov
+00:06 +103: /home/runner/work/kinoplayback/kinoplayback/test/mp4_inspector_test.dart: detects 90° rotation and swaps display size
+00:06 +104: /home/runner/work/kinoplayback/kinoplayback/test/mp4_inspector_test.dart: inspectFile finds moov after mdat (Android MediaMuxer layout)
+00:06 +105: /home/runner/work/kinoplayback/kinoplayback/test/mp4_inspector_test.dart: file without moov (unfinished recording) → null
+00:06 +106: /home/runner/work/kinoplayback/kinoplayback/test/mp4_inspector_test.dart: truncated garbage does not throw
+00:06 +107: /home/runner/work/kinoplayback/kinoplayback/test/mp4_inspector_test.dart: MediaFacts json round-trip
+00:06 +108: All tests passed!
