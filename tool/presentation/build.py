@@ -39,7 +39,7 @@ WHITE = (255, 255, 255)
 GREY = (154, 154, 154)
 RED = (255, 30, 45)
 
-GAP = 0.28         # пауза между фразами, сек
+GAP = 0.38         # пауза между фразами, сек
 PAD_END = 0.7      # пауза после последней фразы
 FADE = 0.35        # затухание на стыках
 FPS = 30
@@ -230,8 +230,10 @@ def make_slide_audio(chs: list[str], voice: str, rate: str, work: Path, tag: str
             mp3 = work / f"{tag}_{i}.mp3"
             wav = work / f"{tag}_{i}.wav"
             asyncio.run(_tts(text, voice, rate, mp3))
-            run(["ffmpeg", "-y", "-loglevel", "error", "-i", str(mp3), "-ar", str(RATE), "-ac", "1",
-                 "-f", "wav", str(wav)])
+            trim = ("silenceremove=start_periods=1:start_threshold=-50dB:start_silence=0.04,areverse,"
+                    "silenceremove=start_periods=1:start_threshold=-50dB:start_silence=0.04,areverse")
+            run(["ffmpeg", "-y", "-loglevel", "error", "-i", str(mp3), "-af", trim, "-ar", str(RATE),
+                 "-ac", "1", "-f", "wav", str(wav)])
             data = read_wav(wav)
         dur = len(data) / 2 / RATE
         pcm += data + silence_frames(GAP)
