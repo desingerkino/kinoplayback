@@ -22,11 +22,17 @@ jobs:
       - uses: actions/setup-python@v6
         with:
           python-version: "3.12"
+      - name: Install ffmpeg
+        run: |
+          if ! command -v ffmpeg >/dev/null; then
+            sudo apt-get update -q
+            sudo apt-get install -y -q ffmpeg
+          fi
+          ffmpeg -version | head -1
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
           pip install pillow pyyaml numpy edge-tts
-          ffmpeg -version | head -1
       - name: Build video
         run: |
           set +e
