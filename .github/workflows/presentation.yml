@@ -16,6 +16,7 @@ jobs:
   video:
     name: Build presentation video
     runs-on: ubuntu-latest
+    timeout-minutes: 45
     steps:
       - uses: actions/checkout@v5
       - uses: actions/setup-python@v6
@@ -24,14 +25,12 @@ jobs:
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install pillow pyyaml edge-tts
+          pip install pillow pyyaml numpy edge-tts
           ffmpeg -version | head -1
       - name: Build video
         run: python tool/presentation/build.py --out build/presentation
       - uses: actions/upload-artifact@v4
         with:
           name: kinoplayback-presentation
-          path: |
-            build/presentation/KINO_PLAYBACK_presentation.mp4
-            build/presentation/slide_*.png
+          path: build/presentation/KINO_PLAYBACK_presentation.mp4
           if-no-files-found: error
