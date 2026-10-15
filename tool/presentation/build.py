@@ -259,21 +259,28 @@ def encode_args(dur: float) -> tuple[list[str], list[str]]:
 
 
 def segment_static(base: Image.Image, cues, wav: Path, dur: float, work: Path, tag: str) -> Path:
-    lst = work / f"{tag}_list.txt"
-    lines = []
-    last = None
-    for i, (a, b, text) in enumerate(cues):
-        p = work / f"{tag}_sub{i}.png"
-        add_subtitle(base, text).save(p)
-        end = dur if i == len(cues) - 1 else b
-        lines.append(f"file '{p.resolve()}'\nduration {end - a:.3f}\n")
-        last = p
-    lines.append(f"file '{last.resolve()}'\n")
-    lst.write_text("".join(lines), encoding="utf-8")
+    """Статичный слайд: кадры подаются в ffmpeg по трубе, как и у сцен."""
     seg = work / f"{tag}.mp4"
     tail, _ = encode_args(dur)
-    run(["ffmpeg", "-y", "-loglevel", "error", "-f", "concat", "-safe", "0", "-i", str(lst),
-         "-i", str(wav), *tail, str(seg)])
+    cmd = ["ffmpeg", "-y", "-loglevel", "error", "-f", "rawvideo", "-pix_fmt", "rgb24", "-s", f"{W}x{H}",
+           "-framerate", str(FPS), "-i", "-", "-i", str(wav), *tail, str(seg)]
+    p = subprocess.Popen(cmd, stdin=subprocess.PIPE, stderr=subprocess.PIPE)
+    n = math.ceil(dur * FPS)
+    cache: dict[str, bytes] = {}
+    try:
+        for i in range(n):
+            t = i / FPS
+            text = next((c[2] for c in cues if c[0] <= t < c[1]), cues[-1][2] if t >= cues[-1][0] else None)
+            key = text or ""
+            if key not in cache:
+                cache[key] = (add_subtitle(base, text) if text else base).tobytes()
+            p.stdin.write(cache[key])
+        p.stdin.close()
+    except BrokenPipeError:
+        pass
+    err = p.stderr.read().decode("utf-8", "replace")
+    if p.wait() != 0:
+        sys.exit(f"ffmpeg (слайд {tag}) завершился с ошибкой:\n{err[-2000:]}")
     return seg
 
 
